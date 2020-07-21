@@ -63,22 +63,19 @@ paths:
       summary: Gets the API version deployed on the server.
       responses:
         '200':
+          description: A textual representation of the API version.
           content:
             text/plain:
               schema:
                 type: string
                 example: 20200720
-                
-  /v:
-    get:
-      $ref: '#/paths/~1version/get'
     
   /now:
     get:
       summary: Gets the current conditions.
-      description: Optional extended description in CommonMark or HTML.
       responses:
         '200':
+          description: The current conditions.
           content:
             application/json:
               schema: 
@@ -100,6 +97,7 @@ paths:
           required: true
       responses:
         '200':
+          description: The report.
           content:
             application/json:
               schema:
@@ -110,8 +108,8 @@ paths:
       summary: Gets API release notes
       responses:
         '200':
+          description: Release notes.
           content:
             text/markdown:
               schema:
                 type: string
-              
