@@ -101,7 +101,7 @@ fn run_migrations() -> bool {
 /// in the database, and emits the current detail on a channel
 // TODO: shorten thread::sleep duration to 30 seconds and check the time
 fn start_worker() {
-    thread::spawn(move|| {
+    thread::spawn(|| {
         loop {
             let mut therms: Vec<Therm> = Vec::new();
             // TODO: error handling, clean up var names

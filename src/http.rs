@@ -1,5 +1,6 @@
 use dotenv::dotenv;
 use hyper::{Body, Request, Response, StatusCode};
+use hyper::header::HeaderValue;
 use hyper::server::Server;
 use hyper::service::{make_service_fn, service_fn};
 use std::convert::Infallible;
@@ -16,14 +17,16 @@ pub async fn start() {
     let server = Server::bind(&addr);
     let server = server.serve(make_service_fn(|_connection| async {
         Ok::<_, Infallible>(service_fn(|req: Request<Body>| async move {
-            println!("Incoming: {}", req.uri().path());
-            let response = match req.uri().path() {
+            println!("[ hyper] Incoming: {}", req.uri().path());
+            let cors_host = env::var("CORS_HOST").unwrap();
+            let mut response = match req.uri().path() {
                 "/now" => now(),
                 "/past" => past(),
                 "/v" | "/version" => version(),
                 "/release-notes" => release_notes(),
                 _ => not_found(),
             };
+            response.headers_mut().insert("Access-Control-Allow-Origin", HeaderValue::from_str(&cors_host).unwrap());
             Ok::<_, Infallible>(response)
         }))
     }));

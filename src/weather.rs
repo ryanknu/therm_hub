@@ -91,6 +91,7 @@ impl Forecast {
 /// Returns the current weather. 
 /// ---------
 /// TODO: store the current hourly forecast in a static variable
+/// TODO: find the nearest and return it as a thermostat reading
 /// TODO: figure out whe we're out of readings and request more
 pub fn current(offline: bool) -> Option<ForecastTherm> {
     if offline {
@@ -153,7 +154,8 @@ fn most_applicable(therms: Vec<ForecastTherm>) -> Option<ForecastTherm> {
     for (i, therm) in therms.iter().enumerate() {
         let therm_date = DateTime::parse_from_rfc3339(&therm.start_time);
         if let Ok(therm_date) = therm_date {
-            let difference = (now.timestamp() - therm_date.timestamp()).abs();
+            let difference = now.timestamp() - therm_date.timestamp();
+            let difference = difference.abs();
             if difference < last_difference {
                 last_difference = difference;
                 index = i;
