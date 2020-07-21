@@ -1,0 +1,1 @@
+DROP TABLE ecobee_token

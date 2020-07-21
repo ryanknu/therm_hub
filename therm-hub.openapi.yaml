@@ -1,0 +1,117 @@
+openapi: 3.0.0
+
+info:
+  title: Therm Hub API
+  version: 20200720
+
+servers:
+  - url: http://localhost:3000
+  
+components:
+  schemas:
+    Condition:
+      type: object
+      properties:
+        date: 
+          type: string
+          format: date
+        condition: 
+          type: string
+          example: Mostly sunny, with a high near 82. Northeast wind 0 to 5 mph.
+        day_temp: 
+          type: integer
+          description: Warning! Can be -1000 to indicate no value.
+          example: 74
+        night_temp: 
+          type: integer
+          description: Warning! Can be -1000 to indicate no value.
+          example: 65
+        
+    NowResponse:
+      type: object
+      properties:
+        forecast:
+          type: array
+          items: 
+            $ref: '#/components/schemas/Condition'
+        thermostats:
+          type: array
+          items:
+            $ref: '#/components/schemas/Thermostat'
+  
+    Thermostat:
+      type: object
+      properties:
+        name:
+          type: string
+          example: outside
+        time:
+          type: string
+          format: date-time
+        is_hygrostat:
+          type: boolean
+        temperature:
+          type: integer
+          example: 74
+        relative_humidity:
+          type: integer
+          example: 55
+    
+paths:
+  /version:
+    get:
+      summary: Gets the API version deployed on the server.
+      responses:
+        '200':
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: 20200720
+                
+  /v:
+    get:
+      $ref: '#/paths/~1version/get'
+    
+  /now:
+    get:
+      summary: Gets the current conditions.
+      description: Optional extended description in CommonMark or HTML.
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: 
+                $ref: '#/components/schemas/NowResponse'
+                  
+  /past:
+    get:
+      summary: Searches for thermostat readings in a date range.
+      parameters:
+        - in: query
+          name: start-date
+          schema:
+            type: date
+          required: true
+        - in: query
+          name: end-date
+          schema:
+            type: date
+          required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NowResponse/properties/thermostats'
+
+  /release-notes:
+    get:
+      summary: Gets API release notes
+      responses:
+        '200':
+          content:
+            text/markdown:
+              schema:
+                type: string
+              

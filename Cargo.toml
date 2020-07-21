@@ -1,0 +1,19 @@
+[package]
+name = "therm_hub"
+version = "0.1.0"
+authors = ["Ryan Knuesel <ryan@mypaynet.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+chrono = "*"
+diesel = { version = "1.4.4", features = ["postgres"] }
+diesel_migrations = "*"
+dotenv = "0.15.0"
+hyper = "0.13"
+lazy_static = "*"
+reqwest = "*"
+serde = { version = "*", features = ["derive"] }
+serde_json = "*"
+tokio = { version = "0.2", features = ["full"] }
