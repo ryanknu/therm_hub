@@ -24,7 +24,7 @@ mod schema;
 use weather::{Condition, Forecast};
 use therm::Thermostat;
 
-static VERSION: u32 = 20200721;
+static VERSION: u32 = 20200722;
 
 /// Set up in-memory data cache for web server. We want to keep track of:
 /// 1. The entire string repsonse for "/now" requests, since it only changes
@@ -136,6 +136,7 @@ fn start_worker() {
             for (_i, therm) in therms.iter().enumerate() {
                 therm.insert(&connection);
             }
+            drop(connection);
 
             let writable_therms = Arc::clone(&THERMS);
             let mut writable_therms = writable_therms.write().unwrap();

@@ -1,3 +1,5 @@
+## 2020-07-22
+- Fix opening lots of connections to the DB.
 ## 2020-07-21
 - Removed extra dotenv syncs
 - Records are now written to the DB.
