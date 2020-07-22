@@ -1,5 +1,4 @@
 use chrono::{DateTime, Utc};
-use dotenv::dotenv;
 use std::collections::HashMap;
 use std::env;
 use serde_json::error::Error as SerdeJsonError;
@@ -184,7 +183,6 @@ fn parse_vec(data: &str) -> Vec<ForecastTherm> {
 // TODO: return my error, not reqwest
 async fn request(hourly: bool) -> Result<String, reqwest::Error> {
     println!("[worker] Getting weather");
-    dotenv().ok();
     
     let weather_url = env::var(if hourly {"WEATHER_URL_HOURLY"} else {"WEATHER_URL_DAILY"})
         .expect("[worker] WEATHER_URL_{HOURLY|DAILY} must be set");

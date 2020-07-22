@@ -5,6 +5,7 @@ use hyper::server::Server;
 use hyper::service::{make_service_fn, service_fn};
 use std::convert::Infallible;
 use std::env;
+use std::fs;
 use std::net::SocketAddr;
 use std::sync::Arc;
 
@@ -30,6 +31,8 @@ pub async fn start() {
             Ok::<_, Infallible>(response)
         }))
     }));
+
+    println!("[ main ] hyper thread started");
 
     if let Err(e) = server.await {
         eprintln!("server error: {}", e);
@@ -73,7 +76,7 @@ fn version() -> Response<Body> {
 fn release_notes() -> Response<Body> {
     Response::builder()
         .header("Content-Type", "text/markdown")
-        .body(Body::from("Not implemented!"))
+        .body(Body::from(fs::read_to_string("release-notes.md").unwrap()))
         .unwrap()
 }
 

@@ -1,4 +1,6 @@
 #[macro_use]
+extern crate diesel;
+#[macro_use]
 extern crate diesel_migrations;
 #[macro_use]
 extern crate lazy_static;
@@ -13,14 +15,16 @@ use std::sync::{Arc, RwLock};
 use std::thread;
 use std::time::Duration;
 
+mod ecobee;
 // mod error;
 mod http;
 mod therm;
 mod weather;
+mod schema;
 use weather::{Condition, Forecast};
-use therm::Therm;
+use therm::Thermostat;
 
-static VERSION: u32 = 20200720;
+static VERSION: u32 = 20200721;
 
 /// Set up in-memory data cache for web server. We want to keep track of:
 /// 1. The entire string repsonse for "/now" requests, since it only changes
@@ -36,7 +40,7 @@ static VERSION: u32 = 20200720;
 /// static variables that require runtime initialization, for example calling
 /// the new function.
 type StaticThreadSafeString = Arc<RwLock<String>>;
-type StaticThreadSafeTherms = Arc<RwLock<Vec<Therm>>>;
+type StaticThreadSafeTherms = Arc<RwLock<Vec<Thermostat>>>;
 type StaticThreadSafeForecast = Arc<RwLock<Forecast>>;
 lazy_static! {
     pub static ref NOW_RES: StaticThreadSafeString = Arc::new(RwLock::new(String::new()));
@@ -47,7 +51,7 @@ lazy_static! {
 #[derive(Serialize)]
 struct NowResponse {
     forecast: Vec<Condition>,
-    thermostats: Vec<Therm>,
+    thermostats: Vec<Thermostat>,
 }
 
 /// # Therm Hub
@@ -72,6 +76,7 @@ struct NowResponse {
 /// 5. Chrono - for date and time operations.
 #[tokio::main]
 async fn main() {
+    dotenv().ok();
     if is_offline() {
         println!("[ main ] Starting in offline mode!");
     }
@@ -91,7 +96,10 @@ fn run_migrations() -> bool {
     let connection = establish_connection();
     match embedded_migrations::run(&connection) {
         Ok(_) => true,
-        _ => false,
+        Err(message) => {
+            println!("Migrations failed! {:?}", message);
+            false
+        },
     }
 }
 
@@ -103,17 +111,30 @@ fn run_migrations() -> bool {
 fn start_worker() {
     thread::spawn(|| {
         loop {
-            let mut therms: Vec<Therm> = Vec::new();
+            let mut therms: Vec<Thermostat> = Vec::new();
+            
             // TODO: error handling, clean up var names
             if let Some(weather) = weather::current(is_offline()) {
-                therms.push(Therm::new(String::from("weather.gov"), weather.start_time.clone(), weather.temperature));
+                therms.push(Thermostat::new(String::from("weather.gov"), weather.start_time.clone(), weather.temperature));
                 println!("[worker] Got weather: {:?}", therms);
             }
+
             if let Some(forecast) = weather::forecast(is_offline()) {
                 let static_forecast = Arc::clone(&FORECAST);
                 let mut static_forecast = static_forecast.write().unwrap();
                 *static_forecast = forecast;
                 drop(static_forecast);
+            }
+
+            for (_i, therm) in ecobee::read().iter().enumerate() {
+                therms.push(therm.clone());
+            }
+
+            // Write thermostats to db
+            // TODO: don't write duplicates :P
+            let connection = establish_connection();
+            for (_i, therm) in therms.iter().enumerate() {
+                therm.insert(&connection);
             }
 
             let writable_therms = Arc::clone(&THERMS);
@@ -156,7 +177,6 @@ fn set_now_response() {
 /// application that would connect to Internet-based services will
 /// return stubbed data instead.
 fn is_offline() -> bool {
-    dotenv().ok();
     let offline = env::var("OFFLINE");
     if let Ok(offline) = offline {
         return offline == "yes";
@@ -170,8 +190,6 @@ fn is_offline() -> bool {
 // TODO: Remove `except`, we don't want the software to panic if
 //       there's a temporary problem with the database.
 fn establish_connection() -> PgConnection {
-    dotenv().ok();
-
     let database_url = env::var("DATABASE_URL")
         .expect("DATABASE_URL must be set");
     PgConnection::establish(&database_url)
