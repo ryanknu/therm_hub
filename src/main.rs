@@ -25,7 +25,7 @@ mod schema;
 use weather::{Condition, Forecast};
 use therm::Thermostat;
 
-static VERSION: u32 = 20200722;
+static VERSION: u32 = 20200731;
 
 /// Set up in-memory data cache for web server. We want to keep track of:
 /// 1. The entire string repsonse for "/now" requests, since it only changes

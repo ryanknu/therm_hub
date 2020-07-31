@@ -1,4 +1,4 @@
-## 2020-07-27
+## 2020-07-31
 - License added.
 - /time endpoint added, to get the current time on devices without an RTC.
 - /install/1 and /install/2 endpoints added, to get started with the EcoBee API.

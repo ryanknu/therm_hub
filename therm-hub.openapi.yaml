@@ -20,12 +20,12 @@ components:
           example: Mostly sunny, with a high near 82. Northeast wind 0 to 5 mph.
         day_temp: 
           type: integer
-          description: Warning! Can be -1000 to indicate no value.
-          example: 74
+          description: Warning! Measured in 1/10 degrees F. Can be -1000 to indicate no value.
+          example: 740
         night_temp: 
           type: integer
-          description: Warning! Can be -1000 to indicate no value.
-          example: 65
+          description: Warning! Measured in 1/10 degrees F. Can be -1000 to indicate no value.
+          example: 650
         
     NowResponse:
       type: object
@@ -52,10 +52,22 @@ components:
           type: boolean
         temperature:
           type: integer
-          example: 74
+          description: Measured in 1/10 degrees F.
+          example: 740
         relative_humidity:
           type: integer
+          description: Integer % from 0-100. How much water can be in air is a function of temperature. RH can be used to calculate heat index.
           example: 55
+    
+    InstallResponse:
+      type: object
+      properties:
+        ecobee_pin:
+          type: string
+          example: a263
+        code:
+          type: string
+          example: czTAVXg4thWHhVosrdZPmf8wj0iiKa7A
     
 paths:
   /version:
@@ -80,20 +92,34 @@ paths:
             application/json:
               schema: 
                 $ref: '#/components/schemas/NowResponse'
+    
+  /time:
+    get:
+      summary: Gets the current time.
+      responses:
+        '200':
+          description: The current time. Helpful for devices that do not have an RTC.
+          content:
+            text/plain:
+              schema: 
+                type: string
+                example: 1595862295
                   
   /past:
     get:
       summary: Searches for thermostat readings in a date range.
       parameters:
         - in: query
-          name: start-date
-          schema:
-            type: date
-          required: true
-        - in: query
           name: end-date
           schema:
-            type: date
+            type: string
+            format: date
+          required: true
+        - in: query
+          name: start-date
+          schema:
+            type: string
+            format: date
           required: true
       responses:
         '200':
@@ -102,6 +128,41 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/NowResponse/properties/thermostats'
+                
+  /install/1:
+    get:
+      summary: Start the EcoBee install process.
+      responses:
+        '500':
+          description: Internal server error
+        '200':
+          description: Data from EcoBee.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InstallResponse'
+                
+  /install/2:
+    get:
+      summary: Completes the EcoBee install process.
+      parameters:
+        - in: query
+          name: code
+          schema:
+            type: string
+          required: true
+          example: czTAVXg4thWHhVosrdZPmf8wj0iiKa7A
+      responses:
+        '400':
+          description: Bad request
+        '500':
+          description: Internal server error
+        '200':
+          description: Whether or not the process was successful.
+          content:
+            text/plain:
+              schema:
+                type: boolean
 
   /release-notes:
     get:
@@ -113,3 +174,4 @@ paths:
             text/markdown:
               schema:
                 type: string
+              
