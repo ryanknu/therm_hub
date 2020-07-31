@@ -58,16 +58,16 @@ impl Forecast {
             if map.contains_key(key) {
                 let mut condition = map.get_mut(key).unwrap();
                 if hour < 12 {
-                    condition.day_temp = therm.temperature;
+                    condition.day_temp = therm.temperature * 10;
                 } else {
-                    condition.night_temp = therm.temperature;
+                    condition.night_temp = therm.temperature * 10;
                 }
             } else {
                 if hour < 12 {
                     map.insert(key.to_string(), Condition {
                         date: String::from(key), 
                         condition: therm.detailed_forecast.clone(), 
-                        day_temp: therm.temperature, 
+                        day_temp: therm.temperature * 10, 
                         night_temp: -1000,
                     });
                 } else {
@@ -75,7 +75,7 @@ impl Forecast {
                         date: String::from(key), 
                         condition: therm.detailed_forecast.clone(), 
                         day_temp: -1000, 
-                        night_temp: therm.temperature,
+                        night_temp: therm.temperature * 10,
                     });
                 }
             }
@@ -96,7 +96,7 @@ pub fn current(offline: bool) -> Option<ForecastTherm> {
     if offline {
         return Some(ForecastTherm {
             start_time: String::from("2020-01-01T00:00:00-05:00"),
-            temperature: 77,
+            temperature: 770,
             temperature_unit: String::from("F"),
             detailed_forecast: String::from("Slight Chance Showers And Thunderstorms"),
         });
@@ -106,7 +106,14 @@ pub fn current(offline: bool) -> Option<ForecastTherm> {
         let response = runtime.block_on(request(true));
         if let Ok(response) = response {
             // print!("response: {}", response);
-            return most_applicable(parse_vec(&response));
+            if let Some(therm) = most_applicable(parse_vec(&response)) {
+                return Some(ForecastTherm {
+                    detailed_forecast: therm.detailed_forecast,
+                    start_time: therm.start_time,
+                    temperature: therm.temperature * 10,
+                    temperature_unit: therm.temperature_unit,
+                })
+            }
         }
     }
     None
@@ -121,11 +128,11 @@ pub fn forecast(offline: bool) -> Option<Forecast> {
         return Some(Forecast {
             stale_time: 0,
             conditions: vec![
-                Condition { date: String::from("2020-07-20"), condition: String::from("Sunny"), day_temp: 80, night_temp: 71 },
-                Condition { date: String::from("2020-07-21"), condition: String::from("Sunny"), day_temp: 78, night_temp: 70 },
-                Condition { date: String::from("2020-07-22"), condition: String::from("Partly Sunny"), day_temp: 81, night_temp: 71 },
-                Condition { date: String::from("2020-07-23"), condition: String::from("Raining"), day_temp: 75, night_temp: 68 },
-                Condition { date: String::from("2020-07-24"), condition: String::from("Thunder Storms"), day_temp: 72, night_temp: 67 },
+                Condition { date: String::from("2020-07-20"), condition: String::from("Sunny"), day_temp: 800, night_temp: 710 },
+                Condition { date: String::from("2020-07-21"), condition: String::from("Sunny"), day_temp: 780, night_temp: 700 },
+                Condition { date: String::from("2020-07-22"), condition: String::from("Partly Sunny"), day_temp: 810, night_temp: 710 },
+                Condition { date: String::from("2020-07-23"), condition: String::from("Raining"), day_temp: 750, night_temp: 680 },
+                Condition { date: String::from("2020-07-24"), condition: String::from("Thunder Storms"), day_temp: 720, night_temp: 670 },
             ],
         })
     }
@@ -182,10 +189,9 @@ fn parse_vec(data: &str) -> Vec<ForecastTherm> {
 
 // TODO: return my error, not reqwest
 async fn request(hourly: bool) -> Result<String, reqwest::Error> {
-    println!("[worker] Getting weather");
+    println!("[worker] Getting {} weather", if hourly {"hourly"} else {"daily"});
     
-    let weather_url = env::var(if hourly {"WEATHER_URL_HOURLY"} else {"WEATHER_URL_DAILY"})
-        .expect("[worker] WEATHER_URL_{HOURLY|DAILY} must be set");
+    let weather_url = env::var(if hourly {"WEATHER_URL_HOURLY"} else {"WEATHER_URL_DAILY"}).unwrap();
 
     let client = reqwest::Client::new();
     let body = client.get(&weather_url)
@@ -195,5 +201,5 @@ async fn request(hourly: bool) -> Result<String, reqwest::Error> {
         .text()
         .await?;
 
-    return Ok(body);
+    Ok(body)
 }

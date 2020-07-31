@@ -16,4 +16,5 @@ lazy_static = "*"
 reqwest = "*"
 serde = { version = "*", features = ["derive"] }
 serde_json = "*"
+serde_urlencoded = "*"
 tokio = { version = "0.2", features = ["full"] }

@@ -35,6 +35,10 @@ impl Thermostat {
         }
     }
 
+    pub fn new2(name: String, time: NaiveDateTime, is_hygrostat: bool, temperature: i32, relative_humidity: i32) -> Thermostat {
+        Thermostat { id: 0, name, time, is_hygrostat, temperature, relative_humidity }
+    }
+
     pub fn insert(&self, connection: &PgConnection) -> Thermostat {
         let new_thermostat = NewThermostat {
             name: self.name.clone(),

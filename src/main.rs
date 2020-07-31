@@ -18,6 +18,7 @@ use std::time::Duration;
 mod ecobee;
 // mod error;
 mod http;
+mod http_client;
 mod therm;
 mod weather;
 mod schema;
@@ -76,11 +77,10 @@ struct NowResponse {
 /// 5. Chrono - for date and time operations.
 #[tokio::main]
 async fn main() {
-    dotenv().ok();
-    if is_offline() {
-        println!("[ main ] Starting in offline mode!");
-    }
-    if run_migrations() {
+    if check_env() && run_migrations() {
+        if is_offline() {
+            println!("[ main ] Starting in offline mode!");
+        }
         // todo: worker::start() maybe?
         // TODO: stop if you can't get initial readings
         start_worker();
@@ -88,10 +88,27 @@ async fn main() {
     }
 }
 
+/// # Check Environment
+/// Checks to see if all environment variables are set before starting
+/// the server so that way we don't have some threads panic and some not.
+/// Panics the main thread if any environment vars are missing.
+fn check_env() -> bool {
+    println!("Checking env...");
+    dotenv().ok();
+    env::var("LISTEN_PORT").expect("LISTEN_PORT must be set");
+    env::var("DATABASE_URL").expect("DATABASE_URL must be set");
+    env::var("WEATHER_URL_DAILY").expect("WEATHER_URL_DAILY must be set");
+    env::var("WEATHER_URL_HOURLY").expect("WEATHER_URL_HOURLY must be set");
+    env::var("CORS_HOST").expect("CORS_HOST must be set");
+    env::var("ECOBEE_CLIENT_ID").expect("ECOBEE_CLIENT_ID must be set");
+    true
+}
+
 /// # Run Database Migrations
 /// Updates the database with the latest table defintions. Returns `true`
 /// if it worked and `false` if it failed.
 fn run_migrations() -> bool {
+    println!("Running migrations...");
     embed_migrations!();
     let connection = establish_connection();
     match embedded_migrations::run(&connection) {
@@ -126,17 +143,19 @@ fn start_worker() {
                 drop(static_forecast);
             }
 
-            for (_i, therm) in ecobee::read().iter().enumerate() {
-                therms.push(therm.clone());
-            }
-
             // Write thermostats to db
             // TODO: don't write duplicates :P
-            let connection = establish_connection();
-            for (_i, therm) in therms.iter().enumerate() {
-                therm.insert(&connection);
+            let db = establish_connection();
+            if let Some(token) = ecobee::current_token(&db) {
+                for reading in ecobee::read(&token) {
+                    therms.push(Thermostat::new2(reading.name, reading.time, reading.is_hygrostat, reading.temperature, reading.relative_humidity));
+                }
             }
-            drop(connection);
+
+            for (_i, therm) in therms.iter().enumerate() {
+                therm.insert(&db);
+            }
+            drop(db);
 
             let writable_therms = Arc::clone(&THERMS);
             let mut writable_therms = writable_therms.write().unwrap();
