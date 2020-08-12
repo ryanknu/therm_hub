@@ -1,8 +1,10 @@
 use chrono::{NaiveDateTime, Utc};
+#[cfg(not(any(test, feature="offline")))]
 use crate::http_client::parse;
 use crate::schema::ecobee_token;
 use diesel::PgConnection;
 use diesel::prelude::*;
+#[cfg(not(any(test, feature="offline")))]
 use std::env;
 
 #[derive(Deserialize, Serialize, Debug)]
@@ -102,15 +104,18 @@ pub async fn get_from_remote_blocking(code: &str, grant_type: GrantType) -> Opti
     get_from_remote(code, grant_type).await
 }
 
+#[allow(unused_variables)]
+#[cfg(any(test, feature="offline"))]
 pub async fn get_from_remote(code: &str, grant_type: GrantType) -> Option<TokenResponse> {
-    if crate::is_offline() {
-        return Some(TokenResponse {
-            access_token: String::from("czTAVXg4thWHhVosrdZPmf8wj0iiKa7A"),
-            refresh_token: String::from("czTAVXg4thWHhVosrdZPmf8wj0iiKa7A"),
-            expires_in: 3600,
-        });
-    }
+    Some(TokenResponse {
+        access_token: String::from("czTAVXg4thWHhVosrdZPmf8wj0iiKa7A"),
+        refresh_token: String::from("czTAVXg4thWHhVosrdZPmf8wj0iiKa7A"),
+        expires_in: 3600,
+    })
+}
 
+#[cfg(not(any(test, feature="offline")))]
+pub async fn get_from_remote(code: &str, grant_type: GrantType) -> Option<TokenResponse> {
     let grant_type = match grant_type {
         GrantType::PIN => "ecobeePin",
         GrantType::RefreshToken => "refresh_token",
@@ -127,6 +132,7 @@ pub async fn get_from_remote(code: &str, grant_type: GrantType) -> Option<TokenR
     }
 }
 
+#[cfg(not(any(test, feature="offline")))]
 async fn http_request(url: &str) -> Result<String, reqwest::Error> {
     println!("[ hyper] HTTP POST request {}", url);
 

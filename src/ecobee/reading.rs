@@ -1,5 +1,7 @@
 use chrono::NaiveDateTime;
+#[cfg(not(any(test, feature="offline")))]
 use crate::http_client::parse;
+#[cfg(not(any(test, feature="offline")))]
 use std::collections::HashMap;
 
 #[derive(Clone, Debug)]
@@ -37,15 +39,8 @@ struct ReadSensorCapability {
     value: String,
 }
 
+#[cfg(not(any(test, feature="offline")))]
 pub fn read(bearer_token: &str) -> Vec<Reading> {
-    if crate::is_offline() {
-        return vec![
-            Reading { id: 0, is_hygrostat: false, time: NaiveDateTime::from_timestamp(1595382655, 0), name: String::from("offline outside"),    relative_humidity: 0,  temperature: 77 },
-            Reading { id: 0, is_hygrostat: true,  time: NaiveDateTime::from_timestamp(1595382655, 0), name: String::from("offline thermostat"), relative_humidity: 65, temperature: 73 },
-            Reading { id: 0, is_hygrostat: false, time: NaiveDateTime::from_timestamp(1595382655, 0), name: String::from("offline fridge"),     relative_humidity: 0,  temperature: 42 },
-        ];
-    }
-
     let mut readings: HashMap<String, Reading> = HashMap::new();
     if let Ok(result) = http_request(bearer_token) {
         if let Some(result) = parse::<ReadResult>(&result) {

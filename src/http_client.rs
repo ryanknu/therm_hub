@@ -15,12 +15,8 @@ pub fn parse<'de, T>(data: &'de str) -> Option<T>
     }
 }
 
-#[tokio::main]
-pub async fn get_blocking(url: &str) -> Option<String> {
-    get(url).await
-}
-
 // TODO: Replace Option<String> to Result<String, MyError>
+#[cfg(any(test, feature="offline"))]
 pub async fn get(url: &str) -> Option<String> {
     let response = get_inner(url).await;
     match response {
@@ -35,6 +31,7 @@ pub async fn get(url: &str) -> Option<String> {
     }
 }
 
+#[cfg(any(test, feature="offline"))]
 async fn get_inner(url: &str) -> Result<String, reqwest::Error> {
     println!("[ hyper] HTTP GET request {}", url);
 

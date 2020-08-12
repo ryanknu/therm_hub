@@ -1,6 +1,9 @@
+#[cfg(not(any(test, feature="offline")))]
 use chrono::{DateTime, Utc};
 use std::collections::HashMap;
+#[cfg(not(any(test, feature="offline")))]
 use std::env;
+#[cfg(not(any(test, feature="offline")))]
 use serde_json::error::Error as SerdeJsonError;
 
 #[derive(Deserialize, Debug)]
@@ -92,15 +95,18 @@ impl Forecast {
 /// TODO: store the current hourly forecast in a static variable
 /// TODO: find the nearest and return it as a thermostat reading
 /// TODO: figure out whe we're out of readings and request more
-pub fn current(offline: bool) -> Option<ForecastTherm> {
-    if offline {
-        return Some(ForecastTherm {
-            start_time: String::from("2020-01-01T00:00:00-05:00"),
-            temperature: 770,
-            temperature_unit: String::from("F"),
-            detailed_forecast: String::from("Slight Chance Showers And Thunderstorms"),
-        });
-    }
+#[cfg(any(test, feature="offline"))]
+pub fn current() -> Option<ForecastTherm> {
+    Some(ForecastTherm {
+        start_time: String::from("2020-01-01T00:00:00-05:00"),
+        temperature: 770,
+        temperature_unit: String::from("F"),
+        detailed_forecast: String::from("Slight Chance Showers And Thunderstorms"),
+    })
+}
+
+#[cfg(not(any(test, feature="offline")))]
+pub fn current() -> Option<ForecastTherm> {
     let runtime = tokio::runtime::Runtime::new();
     if let Ok(mut runtime) = runtime {
         let response = runtime.block_on(request(true));
@@ -123,19 +129,22 @@ pub fn current(offline: bool) -> Option<ForecastTherm> {
 /// Fetches (and stores) the coming forecast for the upcoming week.
 /// Should only fetch when the forecast on hand is stale. Return None
 /// if no change.
-pub fn forecast(offline: bool) -> Option<Forecast> {
-    if offline {
-        return Some(Forecast {
-            stale_time: 0,
-            conditions: vec![
-                Condition { date: String::from("2020-07-20"), condition: String::from("Sunny"), day_temp: 800, night_temp: 710 },
-                Condition { date: String::from("2020-07-21"), condition: String::from("Sunny"), day_temp: 780, night_temp: 700 },
-                Condition { date: String::from("2020-07-22"), condition: String::from("Partly Sunny"), day_temp: 810, night_temp: 710 },
-                Condition { date: String::from("2020-07-23"), condition: String::from("Raining"), day_temp: 750, night_temp: 680 },
-                Condition { date: String::from("2020-07-24"), condition: String::from("Thunder Storms"), day_temp: 720, night_temp: 670 },
-            ],
-        })
-    }
+#[cfg(any(test, feature="offline"))]
+pub fn forecast() -> Option<Forecast> {
+    Some(Forecast {
+        stale_time: 0,
+        conditions: vec![
+            Condition { date: String::from("2020-07-20"), condition: String::from("Sunny"), day_temp: 800, night_temp: 710 },
+            Condition { date: String::from("2020-07-21"), condition: String::from("Sunny"), day_temp: 780, night_temp: 700 },
+            Condition { date: String::from("2020-07-22"), condition: String::from("Partly Sunny"), day_temp: 810, night_temp: 710 },
+            Condition { date: String::from("2020-07-23"), condition: String::from("Raining"), day_temp: 750, night_temp: 680 },
+            Condition { date: String::from("2020-07-24"), condition: String::from("Thunder Storms"), day_temp: 720, night_temp: 670 },
+        ],
+    })
+}
+
+#[cfg(not(any(test, feature="offline")))]
+pub fn forecast() -> Option<Forecast> {
     let runtime = tokio::runtime::Runtime::new();
     if let Ok(mut runtime) = runtime {
         let response = runtime.block_on(request(false));
@@ -153,6 +162,7 @@ pub fn forecast(offline: bool) -> Option<Forecast> {
 /// way to consume this data (the system *should* return the ForecastTherm
 /// which the curren time is between) but this was a fun exercise to implement
 /// closest.
+#[cfg(not(any(test, feature="offline")))]
 fn most_applicable(therms: Vec<ForecastTherm>) -> Option<ForecastTherm> {
     let mut index = 0;
     let mut last_difference = 999999999;
@@ -176,6 +186,7 @@ fn most_applicable(therms: Vec<ForecastTherm>) -> Option<ForecastTherm> {
 
 /// # Parse Vector of Weather Data
 /// Parses a weather.gov API response into a vector
+#[cfg(not(any(test, feature="offline")))]
 fn parse_vec(data: &str) -> Vec<ForecastTherm> {
     let mut therms: Vec<ForecastTherm> = Vec::new();
     let data: Result<ForecastResponse, SerdeJsonError> = serde_json::from_str(&data);
@@ -188,6 +199,7 @@ fn parse_vec(data: &str) -> Vec<ForecastTherm> {
 }
 
 // TODO: return my error, not reqwest
+#[cfg(not(any(test, feature="offline")))]
 async fn request(hourly: bool) -> Result<String, reqwest::Error> {
     println!("[worker] Getting {} weather", if hourly {"hourly"} else {"daily"});
     

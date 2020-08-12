@@ -78,7 +78,7 @@ struct NowResponse {
 #[tokio::main]
 async fn main() {
     if check_env() && run_migrations() {
-        if is_offline() {
+        if cfg!(feature="offline") {
             println!("[ main ] Starting in offline mode!");
         }
         // todo: worker::start() maybe?
@@ -131,12 +131,12 @@ fn start_worker() {
             let mut therms: Vec<Thermostat> = Vec::new();
             
             // TODO: error handling, clean up var names
-            if let Some(weather) = weather::current(is_offline()) {
+            if let Some(weather) = weather::current() {
                 therms.push(Thermostat::new(String::from("weather.gov"), weather.start_time.clone(), weather.temperature));
                 println!("[worker] Got weather: {:?}", therms);
             }
 
-            if let Some(forecast) = weather::forecast(is_offline()) {
+            if let Some(forecast) = weather::forecast() {
                 let static_forecast = Arc::clone(&FORECAST);
                 let mut static_forecast = static_forecast.write().unwrap();
                 *static_forecast = forecast;
@@ -189,19 +189,6 @@ fn set_now_response() {
     let mut writable_now = writable_now.write().unwrap();
     *writable_now = serde_json::to_string(&now_res).unwrap().clone();
     drop(writable_now);
-}
-
-/// # Is Off-line
-/// Returns if the server should connect to Internet-based services.
-/// Set via "OFFLINE" environment variable. If offline, parts of the 
-/// application that would connect to Internet-based services will
-/// return stubbed data instead.
-fn is_offline() -> bool {
-    let offline = env::var("OFFLINE");
-    if let Ok(offline) = offline {
-        return offline == "yes";
-    }
-    false
 }
 
 /// # Establish Connection
