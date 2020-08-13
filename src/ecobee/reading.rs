@@ -1,4 +1,6 @@
-use chrono::{DateTime, Utc, TimeZone};
+#[cfg(any(test, feature="offline"))]
+use chrono::{TimeZone};
+use chrono::{DateTime, Utc};
 #[cfg(not(any(test, feature="offline")))]
 use crate::http_client::parse;
 #[cfg(not(any(test, feature="offline")))]
@@ -39,6 +41,7 @@ struct ReadSensorCapability {
     value: String,
 }
 
+#[allow(unused_variables)]
 #[cfg(any(test, feature="offline"))]
 pub fn read(bearer_token: &str) -> Vec<Reading> {
     vec![
