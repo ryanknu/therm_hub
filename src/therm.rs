@@ -1,4 +1,4 @@
-use chrono::NaiveDateTime;
+use chrono::{DateTime, NaiveDateTime, Utc};
 use diesel::prelude::*;
 use diesel::PgConnection;
 use super::schema::thermostats;
@@ -7,7 +7,7 @@ use super::schema::thermostats;
 pub struct Thermostat {
     pub id: i32,
     pub name: String,
-    pub time: NaiveDateTime,
+    time: NaiveDateTime,
     pub is_hygrostat: bool,
     pub temperature: i32,
     pub relative_humidity: i32,
@@ -24,25 +24,29 @@ struct NewThermostat {
 }
 
 impl Thermostat {
-    pub fn new(name: String, time: String, temp: i32) -> Thermostat {
+    pub fn time(&self) -> DateTime<Utc> {
+        DateTime::<Utc>::from_utc(self.time, Utc)
+    }
+
+    pub fn new(name: String, time: DateTime<Utc>, temp: i32) -> Thermostat {
         Thermostat {
             id: 0,
             name,
-            time: NaiveDateTime::parse_from_str(&time, "%Y-%m-%dT%H:%M:%S%z").unwrap(),
+            time: time.naive_utc(),
             temperature: temp,
             is_hygrostat: false,
             relative_humidity: 0,
         }
     }
 
-    pub fn new2(name: String, time: NaiveDateTime, is_hygrostat: bool, temperature: i32, relative_humidity: i32) -> Thermostat {
-        Thermostat { id: 0, name, time, is_hygrostat, temperature, relative_humidity }
+    pub fn new2(name: String, time: DateTime<Utc>, is_hygrostat: bool, temperature: i32, relative_humidity: i32) -> Thermostat {
+        Thermostat { id: 0, name, time: time.naive_utc(), is_hygrostat, temperature, relative_humidity }
     }
 
     pub fn insert(&self, connection: &PgConnection) -> Thermostat {
         let new_thermostat = NewThermostat {
             name: self.name.clone(),
-            time: self.time.clone(),
+            time: self.time,
             is_hygrostat: self.is_hygrostat,
             temperature: self.temperature,
             relative_humidity: self.relative_humidity,

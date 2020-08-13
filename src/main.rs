@@ -25,7 +25,7 @@ mod schema;
 use weather::{Condition, Forecast};
 use therm::Thermostat;
 
-static VERSION: u32 = 20200731;
+static VERSION: u32 = 20200812;
 
 /// Set up in-memory data cache for web server. We want to keep track of:
 /// 1. The entire string repsonse for "/now" requests, since it only changes
@@ -132,7 +132,7 @@ fn start_worker() {
             
             // TODO: error handling, clean up var names
             if let Some(weather) = weather::current() {
-                therms.push(Thermostat::new(String::from("weather.gov"), weather.start_time.clone(), weather.temperature));
+                therms.push(Thermostat::new(String::from("weather.gov"), weather.start_time, weather.temperature));
                 println!("[worker] Got weather: {:?}", therms);
             }
 
@@ -147,7 +147,7 @@ fn start_worker() {
             // TODO: don't write duplicates :P
             let db = establish_connection();
             if let Some(token) = ecobee::current_token(&db) {
-                for reading in ecobee::read(&token) {
+                for reading in ecobee::read(&token.access_token) {
                     therms.push(Thermostat::new2(reading.name, reading.time, reading.is_hygrostat, reading.temperature, reading.relative_humidity));
                 }
             }

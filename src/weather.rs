@@ -1,5 +1,4 @@
-#[cfg(not(any(test, feature="offline")))]
-use chrono::{DateTime, Utc};
+use chrono::{Date, DateTime, Utc, Timelike};
 use std::collections::HashMap;
 #[cfg(not(any(test, feature="offline")))]
 use std::env;
@@ -20,7 +19,7 @@ struct ForecastProperties {
 #[derive(Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct ForecastTherm {
-    pub start_time: String,
+    pub start_time: DateTime<Utc>,
     pub temperature: i32,
     pub temperature_unit: String,
     pub detailed_forecast: String,
@@ -53,13 +52,12 @@ impl Forecast {
     /// to arrange ForecastTherms by date, and combine multiples (daily and
     /// nightly) into single elements.
     pub fn from(therms: Vec<ForecastTherm>) -> Forecast {
-        let mut map: HashMap<String, Condition> = HashMap::new();
+        let mut map: HashMap<Date<Utc>, Condition> = HashMap::new();
         for (_i, therm) in therms.iter().enumerate() {
-            let key = &therm.start_time[0..10];
-            let hour = &therm.start_time[11..13];
-            let hour: u8 = hour.parse().unwrap();
-            if map.contains_key(key) {
-                let mut condition = map.get_mut(key).unwrap();
+            let key = therm.start_time.date();
+            let hour = therm.start_time.hour();
+            if map.contains_key(&key) {
+                let mut condition = map.get_mut(&key).unwrap();
                 if hour < 12 {
                     condition.day_temp = therm.temperature * 10;
                 } else {
@@ -67,15 +65,15 @@ impl Forecast {
                 }
             } else {
                 if hour < 12 {
-                    map.insert(key.to_string(), Condition {
-                        date: String::from(key), 
+                    map.insert(key, Condition {
+                        date: format!("{}", key.format("%Y-%m-%d")),
                         condition: therm.detailed_forecast.clone(), 
                         day_temp: therm.temperature * 10, 
                         night_temp: -1000,
                     });
                 } else {
-                    map.insert(key.to_string(), Condition {
-                        date: String::from(key), 
+                    map.insert(key, Condition {
+                        date: format!("{}", key.format("%Y-%m-%d")),
                         condition: therm.detailed_forecast.clone(), 
                         day_temp: -1000, 
                         night_temp: therm.temperature * 10,
@@ -98,7 +96,7 @@ impl Forecast {
 #[cfg(any(test, feature="offline"))]
 pub fn current() -> Option<ForecastTherm> {
     Some(ForecastTherm {
-        start_time: String::from("2020-01-01T00:00:00-05:00"),
+        start_time: DateTime::parse_from_rfc3339("2020-01-01T00:00:00-05:00").unwrap().with_timezone(&Utc),
         temperature: 770,
         temperature_unit: String::from("F"),
         detailed_forecast: String::from("Slight Chance Showers And Thunderstorms"),
@@ -168,14 +166,11 @@ fn most_applicable(therms: Vec<ForecastTherm>) -> Option<ForecastTherm> {
     let mut last_difference = 999999999;
     let now = Utc::now();
     for (i, therm) in therms.iter().enumerate() {
-        let therm_date = DateTime::parse_from_rfc3339(&therm.start_time);
-        if let Ok(therm_date) = therm_date {
-            let difference = now.timestamp() - therm_date.timestamp();
-            let difference = difference.abs();
-            if difference < last_difference {
-                last_difference = difference;
-                index = i;
-            }
+        let difference = now.timestamp() - therm.start_time.timestamp();
+        let difference = difference.abs();
+        if difference < last_difference {
+            last_difference = difference;
+            index = i;
         }
     }
     match therms.iter().nth(index) {

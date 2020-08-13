@@ -1,0 +1,20 @@
+Description=ThermHub
+
+Wants=network.target
+After=syslog.target network.target
+
+[Service]
+Environment=LISTEN_PORT=
+Environment=DATABASE_URL=
+Environment=CORS_HOST=
+Environment=ECOBEE_CLIENT_ID=
+Environment=WEATHER_URL_DAILY=
+Environment=WEATHER_URL_HOURLY=
+Type=Simple
+ExecStart=/home/admin/therm_hub
+Restart=on-failure
+RestartSec=5
+KillMode=process
+
+[Install]
+WantedBy=multi-user.target

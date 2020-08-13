@@ -1,7 +1,6 @@
-#[cfg(any(test, feature="offline"))]
-use chrono::NaiveDateTime;
 use diesel::PgConnection;
 pub use reading::Reading;
+pub use reading::read;
 pub use token::Token;
 
 pub mod install;
@@ -27,20 +26,4 @@ pub fn current_token(db: &PgConnection) -> Option<Token> {
             }
         },
     }
-}
-
-// TODO: this method seems to be an unecessary wrapper. replace with pub use.
-#[allow(unused_variables)]
-#[cfg(any(test, feature="offline"))]
-pub fn read(token: &Token) -> Vec<Reading> {
-    vec![
-        Reading { id: 0, is_hygrostat: false, time: NaiveDateTime::from_timestamp(1595382655, 0), name: String::from("offline outside"),    relative_humidity: 0,  temperature: 77 },
-        Reading { id: 0, is_hygrostat: true,  time: NaiveDateTime::from_timestamp(1595382655, 0), name: String::from("offline thermostat"), relative_humidity: 65, temperature: 73 },
-        Reading { id: 0, is_hygrostat: false, time: NaiveDateTime::from_timestamp(1595382655, 0), name: String::from("offline fridge"),     relative_humidity: 0,  temperature: 42 },
-    ]
-}
-
-#[cfg(not(any(test, feature="offline")))]
-pub fn read(token: &Token) -> Vec<Reading> {
-    reading::read(&token.access_token)
 }

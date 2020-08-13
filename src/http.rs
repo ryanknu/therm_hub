@@ -1,4 +1,4 @@
-use chrono::{NaiveDateTime, Utc};
+use chrono::{DateTime, Utc};
 use crate::ecobee::{install, token};
 use crate::ecobee::token::GrantType::PIN;
 use dotenv::dotenv;
@@ -18,10 +18,10 @@ struct InstallTwoInput {
     code: String,
 }
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize)]
 struct PastInput {
-    end_date: NaiveDateTime,
-    start_date: NaiveDateTime,
+    end_date: DateTime<Utc>,
+    start_date: DateTime<Utc>,
 }
 
 /// # Start Server
@@ -82,6 +82,7 @@ fn past(req: Request<Body>) -> Response<Body> {
     match query {
         None => bad_request(),
         Some(input) => {
+            println!("{:?}", input);
             Response::new(Body::from("Not implemented"))
         },
     }

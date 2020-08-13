@@ -1,4 +1,4 @@
-use chrono::NaiveDateTime;
+use chrono::{DateTime, Utc, TimeZone};
 #[cfg(not(any(test, feature="offline")))]
 use crate::http_client::parse;
 #[cfg(not(any(test, feature="offline")))]
@@ -8,7 +8,7 @@ use std::collections::HashMap;
 pub struct Reading {
     pub id: i32,
     pub name: String,
-    pub time: NaiveDateTime,
+    pub time: DateTime<Utc>,
     pub is_hygrostat: bool,
     pub temperature: i32,
     pub relative_humidity: i32,
@@ -39,6 +39,15 @@ struct ReadSensorCapability {
     value: String,
 }
 
+#[cfg(any(test, feature="offline"))]
+pub fn read(bearer_token: &str) -> Vec<Reading> {
+    vec![
+        Reading { id: 0, is_hygrostat: false, time: Utc.timestamp(1595382655, 0), name: String::from("offline outside"),    relative_humidity: 0,  temperature: 77 },
+        Reading { id: 0, is_hygrostat: true,  time: Utc.timestamp(1595382655, 0), name: String::from("offline thermostat"), relative_humidity: 65, temperature: 73 },
+        Reading { id: 0, is_hygrostat: false, time: Utc.timestamp(1595382655, 0), name: String::from("offline fridge"),     relative_humidity: 0,  temperature: 42 },
+    ]
+}
+
 #[cfg(not(any(test, feature="offline")))]
 pub fn read(bearer_token: &str) -> Vec<Reading> {
     let mut readings: HashMap<String, Reading> = HashMap::new();
@@ -61,7 +70,7 @@ pub fn read(bearer_token: &str) -> Vec<Reading> {
                                 readings.insert(key.clone(), Reading {
                                     id: 0,
                                     name: key.clone(),
-                                    time: NaiveDateTime::parse_from_str(&time_str, "%Y-%m-%d %H:%M:%S").unwrap(),
+                                    time: DateTime::parse_from_rfc3339(&time_str).unwrap().with_timezone(&Utc),
                                     is_hygrostat,
                                     temperature: if is_hygrostat { -10000 } else { value },
                                     relative_humidity: if is_hygrostat { value } else { 0 },
