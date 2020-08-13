@@ -1,6 +1,6 @@
 #[cfg(any(test, feature="offline"))]
 use chrono::{TimeZone};
-use chrono::{DateTime, Utc};
+use chrono::{NaiveDateTime, DateTime, Utc};
 #[cfg(not(any(test, feature="offline")))]
 use crate::http_client::parse;
 #[cfg(not(any(test, feature="offline")))]
@@ -25,7 +25,7 @@ struct ReadResult {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct ReadThermostats {
-    thermostat_time: String,
+    utc_time: NaiveDateTime,
     remote_sensors: Vec<ReadSensors>,
 }
 
@@ -57,7 +57,6 @@ pub fn read(bearer_token: &str) -> Vec<Reading> {
     if let Ok(result) = http_request(bearer_token) {
         if let Some(result) = parse::<ReadResult>(&result) {
             for read_result in result.thermostat_list {
-                let time_str = read_result.thermostat_time;
                 for sensor in read_result.remote_sensors {
                     let key = sensor.name;
                     for capability in sensor.capability {
@@ -73,7 +72,7 @@ pub fn read(bearer_token: &str) -> Vec<Reading> {
                                 readings.insert(key.clone(), Reading {
                                     id: 0,
                                     name: key.clone(),
-                                    time: DateTime::parse_from_rfc3339(&time_str).unwrap().with_timezone(&Utc),
+                                    time: DateTime::<Utc>::from_utc(read_result.utc_time, Utc),
                                     is_hygrostat,
                                     temperature: if is_hygrostat { -10000 } else { value },
                                     relative_humidity: if is_hygrostat { value } else { 0 },
