@@ -21,3 +21,4 @@ tokio = { version = "0.2", features = ["full"] }
 
 [features]
 offline = []
+queries = []

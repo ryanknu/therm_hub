@@ -56,7 +56,14 @@ impl TokenResponse {
 
 pub fn get_token(db: &PgConnection) -> Option<Token> {
     use crate::schema::ecobee_token::dsl;
-    match dsl::ecobee_token.select((dsl::id, dsl::access_token, dsl::refresh_token, dsl::expires)).limit(1).load::<Token>(db) {
+    
+    let select = dsl::ecobee_token.select((dsl::id, dsl::access_token, dsl::refresh_token, dsl::expires)).limit(1);
+    
+    if cfg!(feature="queries") {
+        println!("{}", diesel::debug_query::<diesel::pg::Pg, _>(&select).to_string());
+    }
+
+    match select.load::<Token>(db) {
         Ok(query_result) => {
             match query_result.first() {
                 Some(token) => Some(token.clone()),

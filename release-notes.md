@@ -1,4 +1,5 @@
-## 2020-08-12
+## 2020-08-13
+- `/past` now works. Have fun searching past data.
 - Time zones? What are those? Server now converts everything in and out to UTC.
 - Offline env variable has been reworked as `#cfg`.
 - Service file added for server deploys

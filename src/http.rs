@@ -1,6 +1,7 @@
 use chrono::{DateTime, Utc};
 use crate::ecobee::{install, token};
 use crate::ecobee::token::GrantType::PIN;
+use crate::Thermostat;
 use dotenv::dotenv;
 use hyper::{Body, Request, Response, StatusCode, Method};
 use hyper::header::HeaderValue;
@@ -82,8 +83,16 @@ fn past(req: Request<Body>) -> Response<Body> {
     match query {
         None => bad_request(),
         Some(input) => {
-            println!("{:?}", input);
-            Response::new(Body::from("Not implemented"))
+            let connection = crate::establish_connection();
+            let result = Thermostat::query_dates(&connection, &input.start_date, &input.end_date);
+            drop(connection);
+            match result {
+                Err(_) => internal_server_error(),
+                Ok(result) => match serde_json::to_string(&result) {
+                    Err(_) => internal_server_error(),
+                    Ok(body) => Response::new(Body::from(body)),
+                }
+            }
         },
     }
 }

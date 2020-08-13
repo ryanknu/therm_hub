@@ -110,18 +110,22 @@ paths:
       summary: Searches for thermostat readings in a date range.
       parameters:
         - in: query
-          name: end-date
+          name: end_date
           schema:
             type: string
-            format: date
+            example: 2020-07-30T00:00:00-05:00
           required: true
         - in: query
-          name: start-date
+          name: start_date
           schema:
             type: string
-            format: date
+            example: 2020-07-29T00:00:00-05:00
           required: true
       responses:
+        '400':
+          description: Bad request
+        '500':
+          description: Internal server error
         '200':
           description: The report.
           content:
