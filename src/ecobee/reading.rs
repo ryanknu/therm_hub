@@ -25,6 +25,7 @@ struct ReadResult {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct ReadThermostats {
+    #[serde(deserialize_with = "deserialize_date")]
     utc_time: NaiveDateTime,
     remote_sensors: Vec<ReadSensors>,
 }
@@ -39,6 +40,14 @@ struct ReadSensors {
 struct ReadSensorCapability {
     r#type: String,
     value: String,
+}
+
+fn deserialize_date<'de, D>(deserializer: D) -> Result<NaiveDateTime, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let s: String = serde::Deserialize::deserialize(deserializer)?;
+    NaiveDateTime::parse_from_str(&s, "%Y-%m-%d %H:%M:%S").map_err(serde::de::Error::custom)
 }
 
 #[allow(unused_variables)]
