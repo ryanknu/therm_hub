@@ -17,7 +17,7 @@ impl Serialize for InstallResponse {
     where
         S: Serializer,
     {
-        // 3 is the number of fields in the struct.
+        // 2 is the number of fields in the struct.
         let mut state = serializer.serialize_struct("InstallResponse", 2)?;
         state.serialize_field("ecobee_pin", &self.ecobee_pin)?;
         state.serialize_field("code", &self.code)?;

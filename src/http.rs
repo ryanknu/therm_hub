@@ -1,6 +1,5 @@
 use chrono::{DateTime, Utc};
-use crate::ecobee::{install, token};
-use crate::ecobee::token::GrantType::PIN;
+use crate::ecobee::{install, get_token, save_token, GRANT_PIN};
 use crate::Thermostat;
 use dotenv::dotenv;
 use hyper::{Body, Request, Response, StatusCode, Method};
@@ -129,7 +128,7 @@ fn release_notes() -> Response<Body> {
 
 async fn install_1(req: Request<Body>) -> Response<Body> {
     match req.method() {
-        &Method::GET => match install::install().await {
+        &Method::GET => match install().await {
             Ok(install_response) => match serde_json::to_string(&install_response) {
                 Ok(data) => Response::new(Body::from(data)),
                 Err(_) => internal_server_error(),
@@ -148,14 +147,14 @@ async fn install_2(req: Request<Body>) -> Response<Body> {
     match code {
         None => bad_request(),
         Some(code) => {
-            let response = token::get_from_remote(&code.code, PIN).await;
+            let response = get_token(&code.code, GRANT_PIN).await;
             println!("response: {:?}", response);
             match response {
                 Err(_) => internal_server_error(),
                 Ok(token_response) => {
                     let token = token_response.to_token();
                     let db = crate::establish_connection();
-                    let token = token::save_token(&token, &db);
+                    let token = save_token(&token, &db);
                     drop(db);
                     match token {
                         None => Response::new(Body::from("false")),
