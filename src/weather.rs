@@ -1,9 +1,5 @@
-use chrono::{Date, DateTime, Utc, Timelike};
+use chrono::{Date, DateTime, Utc, Timelike, TimeZone};
 use std::collections::HashMap;
-#[cfg(not(any(test, feature="offline")))]
-use std::env;
-#[cfg(not(any(test, feature="offline")))]
-use serde_json::error::Error as SerdeJsonError;
 
 #[derive(Deserialize, Debug)]
 struct ForecastResponse {
@@ -27,7 +23,7 @@ pub struct ForecastTherm {
 
 #[derive(Clone)]
 pub struct Forecast {
-    stale_time: u64,
+    stale_time: DateTime<Utc>,
     pub conditions: Vec<Condition>,
 }
 
@@ -42,7 +38,7 @@ pub struct Condition {
 impl Forecast {
     pub fn new() -> Forecast {
         Forecast {
-            stale_time: 0,
+            stale_time: Utc.timestamp(0, 0),
             conditions: vec![],
         }
     }
@@ -53,9 +49,13 @@ impl Forecast {
     /// nightly) into single elements.
     pub fn from(therms: Vec<ForecastTherm>) -> Forecast {
         let mut map: HashMap<Date<Utc>, Condition> = HashMap::new();
-        for (_i, therm) in therms.iter().enumerate() {
+        let mut max = Utc.timestamp(0, 0);
+        for therm in therms {
             let key = therm.start_time.date();
             let hour = therm.start_time.hour();
+            if therm.start_time.timestamp() > max.timestamp() {
+                max = therm.start_time;
+            }
             if map.contains_key(&key) {
                 let mut condition = map.get_mut(&key).unwrap();
                 if hour < 12 {
@@ -67,32 +67,29 @@ impl Forecast {
                 if hour < 12 {
                     map.insert(key, Condition {
                         date: format!("{}", key.format("%Y-%m-%d")),
-                        condition: therm.detailed_forecast.clone(), 
-                        day_temp: therm.temperature * 10, 
+                        condition: therm.detailed_forecast.clone(),
+                        day_temp: therm.temperature * 10,
                         night_temp: -1000,
                     });
                 } else {
                     map.insert(key, Condition {
                         date: format!("{}", key.format("%Y-%m-%d")),
-                        condition: therm.detailed_forecast.clone(), 
-                        day_temp: -1000, 
+                        condition: therm.detailed_forecast.clone(),
+                        day_temp: -1000,
                         night_temp: therm.temperature * 10,
                     });
                 }
             }
         }
         Forecast {
-            stale_time: 0, // TODO
+            stale_time: max,
             conditions: map.values().cloned().collect(),
         }
     }
 }
 
-/// Returns the current weather. 
-/// ---------
-/// TODO: store the current hourly forecast in a static variable
-/// TODO: find the nearest and return it as a thermostat reading
-/// TODO: figure out whe we're out of readings and request more
+/// # Current Weather
+/// Returns a single forecast therm for what the weather is currently like.
 #[cfg(any(test, feature="offline"))]
 pub fn current() -> Option<ForecastTherm> {
     Some(ForecastTherm {
@@ -105,22 +102,21 @@ pub fn current() -> Option<ForecastTherm> {
 
 #[cfg(not(any(test, feature="offline")))]
 pub fn current() -> Option<ForecastTherm> {
-    let runtime = tokio::runtime::Runtime::new();
-    if let Ok(mut runtime) = runtime {
-        let response = runtime.block_on(request(true));
-        if let Ok(response) = response {
-            // print!("response: {}", response);
-            if let Some(therm) = most_applicable(parse_vec(&response)) {
-                return Some(ForecastTherm {
-                    detailed_forecast: therm.detailed_forecast,
-                    start_time: therm.start_time,
-                    temperature: therm.temperature * 10,
-                    temperature_unit: therm.temperature_unit,
-                })
-            }
-        }
+    match weather_request(true) {
+        Ok(response) => match most_applicable(response) {
+            Some(therm) => Some(ForecastTherm {
+                detailed_forecast: therm.detailed_forecast,
+                start_time: therm.start_time,
+                temperature: therm.temperature * 10,
+                temperature_unit: therm.temperature_unit,
+            }),
+            None => None,
+        },
+        Err(err) => {
+            eprintln!("Failed getting weather! {:?}", err);
+            None
+        },
     }
-    None
 }
 
 /// # Fetch forecast
@@ -130,12 +126,12 @@ pub fn current() -> Option<ForecastTherm> {
 #[cfg(any(test, feature="offline"))]
 pub fn forecast() -> Option<Forecast> {
     Some(Forecast {
-        stale_time: 0,
+        stale_time: Utc.timestamp(0, 0),
         conditions: vec![
-            Condition { date: String::from("2020-07-20"), condition: String::from("Sunny"), day_temp: 800, night_temp: 710 },
-            Condition { date: String::from("2020-07-21"), condition: String::from("Sunny"), day_temp: 780, night_temp: 700 },
-            Condition { date: String::from("2020-07-22"), condition: String::from("Partly Sunny"), day_temp: 810, night_temp: 710 },
-            Condition { date: String::from("2020-07-23"), condition: String::from("Raining"), day_temp: 750, night_temp: 680 },
+            Condition { date: String::from("2020-07-20"), condition: String::from("Sunny"),          day_temp: 800, night_temp: 710 },
+            Condition { date: String::from("2020-07-21"), condition: String::from("Sunny"),          day_temp: 780, night_temp: 700 },
+            Condition { date: String::from("2020-07-22"), condition: String::from("Partly Sunny"),   day_temp: 810, night_temp: 710 },
+            Condition { date: String::from("2020-07-23"), condition: String::from("Raining"),        day_temp: 750, night_temp: 680 },
             Condition { date: String::from("2020-07-24"), condition: String::from("Thunder Storms"), day_temp: 720, night_temp: 670 },
         ],
     })
@@ -143,15 +139,13 @@ pub fn forecast() -> Option<Forecast> {
 
 #[cfg(not(any(test, feature="offline")))]
 pub fn forecast() -> Option<Forecast> {
-    let runtime = tokio::runtime::Runtime::new();
-    if let Ok(mut runtime) = runtime {
-        let response = runtime.block_on(request(false));
-        if let Ok(response) = response {
-            // print!("response: {}", response);
-            return Some(Forecast::from(parse_vec(&response)));
-        }
+    match weather_request(false) {
+        Ok(response) => Some(Forecast::from(response)),
+        Err(err) => {
+            eprintln!("Failed getting weather! {:?}", err);
+            None
+        },
     }
-    None
 }
 
 /// # Most Applicable
@@ -173,32 +167,21 @@ fn most_applicable(therms: Vec<ForecastTherm>) -> Option<ForecastTherm> {
             index = i;
         }
     }
-    match therms.iter().nth(index) {
+    match therms.get(index) {
         Some(therm) => Some(therm.clone()),
         _ => None,
     }
 }
 
-/// # Parse Vector of Weather Data
-/// Parses a weather.gov API response into a vector
+/// # Weather Request
+/// Gets either hourly or daily weather (based on boolean input var) from weather.gov
+/// and returns a vector of ForecastTherm
 #[cfg(not(any(test, feature="offline")))]
-fn parse_vec(data: &str) -> Vec<ForecastTherm> {
-    let mut therms: Vec<ForecastTherm> = Vec::new();
-    let data: Result<ForecastResponse, SerdeJsonError> = serde_json::from_str(&data);
-    if let Ok(data) = data {
-        for (_i, period) in data.properties.periods.iter().enumerate() {
-            therms.push(period.clone());
-        }
-    }
-    therms
-}
-
-// TODO: return my error, not reqwest
-#[cfg(not(any(test, feature="offline")))]
-async fn request(hourly: bool) -> Result<String, reqwest::Error> {
+#[tokio::main]
+async fn weather_request(hourly: bool) -> Result<Vec<ForecastTherm>, crate::error::Error> {
     println!("[worker] Getting {} weather", if hourly {"hourly"} else {"daily"});
     
-    let weather_url = env::var(if hourly {"WEATHER_URL_HOURLY"} else {"WEATHER_URL_DAILY"}).unwrap();
+    let weather_url = std::env::var(if hourly {"WEATHER_URL_HOURLY"} else {"WEATHER_URL_DAILY"}).unwrap();
 
     let client = reqwest::Client::new();
     let body = client.get(&weather_url)
@@ -208,5 +191,8 @@ async fn request(hourly: bool) -> Result<String, reqwest::Error> {
         .text()
         .await?;
 
-    Ok(body)
+    match serde_json::from_str::<ForecastResponse>(&body) {
+        Ok(data) => Ok(data.properties.periods),
+        Err(_) => Ok(Vec::new()),
+    }
 }
