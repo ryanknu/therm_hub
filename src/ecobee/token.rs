@@ -140,3 +140,25 @@ pub async fn get_from_remote(code: &str, grant_type: GrantType) -> Result<TokenR
 
     parse::<TokenResponse>(&body)
 }
+
+/// # Current Token
+/// Retrieves a current token from the DB or refreshes and saves the token from the remote API.
+pub fn current_token(db: &PgConnection) -> Option<Token> {
+    match get_token(db) {
+        None => None,
+        Some(token) => {
+            match token.is_expired() {
+                false => Some(token.clone()),
+                true => {
+                    match get_from_remote_blocking(&token.refresh_token, GrantType::RefreshToken) {
+                        Err(_) => None,
+                        Ok(response) => {
+                            save_token(&response.to_token(), db);
+                            Some(response.to_token())
+                        }
+                    }
+                },
+            }
+        },
+    }
+}
