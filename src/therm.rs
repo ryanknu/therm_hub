@@ -66,7 +66,6 @@ impl Thermostat {
         let start_date = start_date.naive_utc();
         let end_date = end_date.naive_utc();
         let query = dsl::thermostats
-            .select((dsl::id, dsl::name, dsl::time, dsl::is_hygrostat, dsl::temperature, dsl::relative_humidity))
             .filter(dsl::time.ge(start_date))
             .filter(dsl::time.le(end_date));
 
