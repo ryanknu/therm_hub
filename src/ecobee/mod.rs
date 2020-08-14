@@ -9,9 +9,9 @@ pub use token::get_from_remote as get_token;
 pub use token::save_token;
 pub use token::GrantType::PIN as GRANT_PIN;
 
-pub mod install;
-pub mod reading;
-pub mod token;
+mod install;
+mod reading;
+mod token;
 
 pub fn current_token(db: &PgConnection) -> Option<Token> {
     match token::get_token(db) {
