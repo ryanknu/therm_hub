@@ -76,33 +76,36 @@ pub fn get_token(db: &PgConnection) -> Option<Token> {
 
 pub fn save_token(token: &Token, db: &PgConnection) -> Option<Token> {
     use crate::schema::ecobee_token::dsl;
-    let query_result = dsl::ecobee_token.select((dsl::id, dsl::access_token, dsl::refresh_token, dsl::expires)).limit(1).load::<Token>(db);
 
-    match query_result {
-        Err(err) => {
-            println!("[ db   ] Error {:?}", err);
-            None
-        },
-        Ok(query_result) => {
-            match query_result.first() {
-                None => diesel::insert_into(ecobee_token::table)
-                    .values(TokenInsert {
-                        access_token: token.access_token.clone(),
-                        expires: token.expires,
-                        refresh_token: token.refresh_token.clone(),
-                    })
-                    .get_result(db)
-                    .ok(),
-                Some(db_token) => diesel::update(db_token)
-                    .set((
-                        dsl::access_token.eq(token.access_token.clone()), 
-                        dsl::expires.eq(token.expires),
-                        dsl::refresh_token.eq(token.refresh_token.clone()))
-                    )
-                    .get_result::<Token>(db)
-                    .ok(),
+    match get_token(db) {
+        None => {
+            let insert = diesel::insert_into(ecobee_token::table)
+                .values(TokenInsert {
+                    access_token: token.access_token.clone(),
+                    expires: token.expires,
+                    refresh_token: token.refresh_token.clone(),
+                });
+
+            if cfg!(feature="queries") {
+                println!("{}", diesel::debug_query::<diesel::pg::Pg, _>(&insert).to_string());
             }
-        }
+
+            insert.get_result(db).ok()
+        },
+        Some(db_token) => {
+            let update = diesel::update(&db_token)
+                .set((
+                    dsl::access_token.eq(token.access_token.clone()), 
+                    dsl::expires.eq(token.expires),
+                    dsl::refresh_token.eq(token.refresh_token.clone()))
+                );
+
+            if cfg!(feature="queries") {
+                println!("{}", diesel::debug_query::<diesel::pg::Pg, _>(&update).to_string());
+            }
+                
+            update.get_result::<Token>(db).ok()
+        },
     }
 }
 
