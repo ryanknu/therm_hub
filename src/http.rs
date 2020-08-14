@@ -128,12 +128,15 @@ fn release_notes() -> Response<Body> {
 }
 
 async fn install_1(req: Request<Body>) -> Response<Body> {
-    if !Method::GET.eq(req.method()) {
-        return method_not_allowed();
-    }
-    match serde_json::to_string(&install::install().await) {
-        Err(_) => internal_server_error(),
-        Ok(response) => Response::new(Body::from(response))
+    match req.method() {
+        &Method::GET => match install::install().await {
+            Ok(install_response) => match serde_json::to_string(&install_response) {
+                Ok(data) => Response::new(Body::from(data)),
+                Err(_) => internal_server_error(),
+            },
+            Err(_) => internal_server_error(),
+        },
+        _ => method_not_allowed(),
     }
 }
 
@@ -148,8 +151,8 @@ async fn install_2(req: Request<Body>) -> Response<Body> {
             let response = token::get_from_remote(&code.code, PIN).await;
             println!("response: {:?}", response);
             match response {
-                None => internal_server_error(),
-                Some(token_response) => {
+                Err(_) => internal_server_error(),
+                Ok(token_response) => {
                     let token = token_response.to_token();
                     let db = crate::establish_connection();
                     let token = token::save_token(&token, &db);

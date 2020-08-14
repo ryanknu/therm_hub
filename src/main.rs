@@ -16,9 +16,8 @@ use std::thread;
 use std::time::Duration;
 
 mod ecobee;
-// mod error;
+mod error;
 mod http;
-mod http_client;
 mod therm;
 mod weather;
 mod schema;
@@ -201,4 +200,19 @@ fn establish_connection() -> PgConnection {
         .expect("DATABASE_URL must be set");
     PgConnection::establish(&database_url)
         .expect(&format!("Error connecting to {}", database_url))
+}
+
+/// # Parse JSON
+/// Parses JSON into the type you want using serde.
+pub fn parse<'de, T>(data: &'de str) -> Result<T, crate::error::Error>
+    where T: serde::Deserialize<'de> {
+    let result: Result<T, serde_json::error::Error> = serde_json::from_str(&data);
+    match result {
+        Ok(data) => Ok(data),
+        Err(err) => {
+            eprintln!("[ json ] JSON: {}", data);
+            eprintln!("[ json ] JSON error: {}", err);
+            Err(err.into())
+        }
+    }
 }

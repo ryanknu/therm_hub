@@ -1,8 +1,4 @@
-#[cfg(any(test, feature="offline"))]
-use crate::http_client::{get, parse};
 use serde::ser::{Serialize, Serializer, SerializeStruct};
-#[cfg(any(test, feature="offline"))]
-use std::env;
 
 // this file covers the ecobee api install process
 
@@ -30,20 +26,24 @@ impl Serialize for InstallResponse {
 }
 
 #[cfg(not(any(test, feature="offline")))]
-pub async fn install() -> Option<InstallResponse> {
-    Some(InstallResponse {
+pub async fn install() -> Result<InstallResponse, crate::error::Error> {
+    Ok(InstallResponse {
         ecobee_pin: String::from("a263"),
         code: String::from("czTAVXg4thWHhVosrdZPmf8wj0iiKa7A"),
     })
 }
 
 #[cfg(any(test, feature="offline"))]
-pub async fn install() -> Option<InstallResponse> {
-    let client_id = env::var("ECOBEE_CLIENT_ID").unwrap();
+pub async fn install() -> Result<InstallResponse, crate::error::Error> {
+    let client_id = std::env::var("ECOBEE_CLIENT_ID").unwrap();
     let url = format!("https://api.ecobee.com/authorize?response_type=ecobeePin&client_id={}&scope=smartRead", client_id);
-
-    match get(&url).await {
-        None => None,
-        Some(response) => parse::<InstallResponse>(&response),
-    }
+    let client = reqwest::Client::new();
+    let body = client.get(&url)
+        .header("User-Agent", "github.com/ryanknu/therm_hub")
+        .send()
+        .await?
+        .text()
+        .await?;
+    
+    crate::parse::<InstallResponse>(&body)
 }

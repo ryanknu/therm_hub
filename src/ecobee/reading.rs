@@ -2,7 +2,7 @@
 use chrono::{TimeZone};
 use chrono::{NaiveDateTime, DateTime, Utc};
 #[cfg(not(any(test, feature="offline")))]
-use crate::http_client::parse;
+use crate::parse;
 #[cfg(not(any(test, feature="offline")))]
 use std::collections::HashMap;
 
@@ -64,7 +64,7 @@ pub fn read(bearer_token: &str) -> Vec<Reading> {
 pub fn read(bearer_token: &str) -> Vec<Reading> {
     let mut readings: HashMap<String, Reading> = HashMap::new();
     if let Ok(result) = http_request(bearer_token) {
-        if let Some(result) = parse::<ReadResult>(&result) {
+        if let Ok(result) = parse::<ReadResult>(&result) {
             for read_result in result.thermostat_list {
                 for sensor in read_result.remote_sensors {
                     let key = sensor.name;
