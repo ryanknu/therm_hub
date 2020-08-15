@@ -76,10 +76,10 @@ struct NowResponse {
 /// 5. Chrono - for date and time operations.
 #[tokio::main]
 async fn main() {
+    if cfg!(feature="offline") {
+        println!("Starting in offline mode...");
+    }
     if check_env() && run_migrations() {
-        if cfg!(feature="offline") {
-            println!("[ main ] Starting in offline mode!");
-        }
         // todo: worker::start() maybe?
         // TODO: stop if you can't get initial readings
         start_worker();
@@ -132,7 +132,6 @@ fn start_worker() {
             // TODO: error handling, clean up var names
             if let Some(weather) = weather::current() {
                 therms.push(Thermostat::new(String::from("weather.gov"), weather.start_time, weather.temperature));
-                println!("[worker] Got weather: {:?}", therms);
             }
 
             if let Some(forecast) = weather::forecast() {
@@ -166,7 +165,7 @@ fn start_worker() {
             thread::sleep(Duration::from_secs(300));
         }
     });
-    println!("[ main ] Worker thread spawned");
+    println!("Worker thread spawned");
 }
 
 /// # Set Now Response

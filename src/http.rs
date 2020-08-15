@@ -178,7 +178,7 @@ fn query_parameters<'de, T, V>(req: &'de Request<V>) -> Option<T>
     match parsed {
         Ok(parsed) => Some(parsed),
         Err(err) => {
-            println!("[ hyper] could not decode query params {:?}", err);
+            eprintln!("[ hyper] could not decode query params {:?}", err);
             None
         },
     }
