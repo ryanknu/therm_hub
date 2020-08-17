@@ -16,7 +16,6 @@ use std::thread;
 use std::time::Duration;
 
 mod ecobee;
-mod error;
 mod http;
 mod schema;
 mod therm;
@@ -211,7 +210,7 @@ fn establish_connection() -> PgConnection {
 
 /// # Parse JSON
 /// Parses JSON into the type you want using serde.
-pub fn parse<'de, T>(data: &'de str) -> Result<T, crate::error::Error>
+pub fn parse<'de, T>(data: &'de str) -> anyhow::Result<T>
 where
     T: serde::Deserialize<'de>,
 {

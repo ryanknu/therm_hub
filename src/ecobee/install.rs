@@ -26,7 +26,7 @@ impl Serialize for InstallResponse {
 }
 
 #[cfg(not(any(test, feature = "offline")))]
-pub async fn install() -> Result<InstallResponse, crate::error::Error> {
+pub async fn install() -> anyhow::Result<InstallResponse> {
     Ok(InstallResponse {
         ecobee_pin: String::from("a263"),
         code: String::from("czTAVXg4thWHhVosrdZPmf8wj0iiKa7A"),
@@ -34,7 +34,7 @@ pub async fn install() -> Result<InstallResponse, crate::error::Error> {
 }
 
 #[cfg(any(test, feature = "offline"))]
-pub async fn install() -> Result<InstallResponse, crate::error::Error> {
+pub async fn install() -> anyhow::Result<InstallResponse> {
     let client_id = std::env::var("ECOBEE_CLIENT_ID").unwrap();
     let url = format!(
         "https://api.ecobee.com/authorize?response_type=ecobeePin&client_id={}&scope=smartRead",

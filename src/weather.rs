@@ -201,7 +201,7 @@ fn most_applicable(therms: Vec<ForecastTherm>) -> Option<ForecastTherm> {
 /// and returns a vector of ForecastTherm
 #[cfg(not(any(test, feature = "offline")))]
 #[tokio::main]
-async fn weather_request(hourly: bool) -> Result<Vec<ForecastTherm>, crate::error::Error> {
+async fn weather_request(hourly: bool) -> anyhow::Result<Vec<ForecastTherm>> {
     println!(
         "[worker] Getting {} weather",
         if hourly { "hourly" } else { "daily" }

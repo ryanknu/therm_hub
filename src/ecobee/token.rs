@@ -119,16 +119,13 @@ pub fn save_token(token: &Token, db: &PgConnection) -> Option<Token> {
 pub async fn get_from_remote_blocking(
     code: &str,
     grant_type: GrantType,
-) -> Result<TokenResponse, crate::error::Error> {
+) -> anyhow::Result<TokenResponse> {
     get_from_remote(code, grant_type).await
 }
 
 #[allow(unused_variables)]
 #[cfg(any(test, feature = "offline"))]
-pub async fn get_from_remote(
-    code: &str,
-    grant_type: GrantType,
-) -> Result<TokenResponse, crate::error::Error> {
+pub async fn get_from_remote(code: &str, grant_type: GrantType) -> anyhow::Result<TokenResponse> {
     Ok(TokenResponse {
         access_token: String::from("czTAVXg4thWHhVosrdZPmf8wj0iiKa7A"),
         refresh_token: String::from("czTAVXg4thWHhVosrdZPmf8wj0iiKa7A"),
@@ -137,10 +134,7 @@ pub async fn get_from_remote(
 }
 
 #[cfg(not(any(test, feature = "offline")))]
-pub async fn get_from_remote(
-    code: &str,
-    grant_type: GrantType,
-) -> Result<TokenResponse, crate::error::Error> {
+pub async fn get_from_remote(code: &str, grant_type: GrantType) -> anyhow::Result<TokenResponse> {
     let grant_type = match grant_type {
         GrantType::PIN => "ecobeePin",
         GrantType::RefreshToken => "refresh_token",
