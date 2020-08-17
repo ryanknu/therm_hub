@@ -168,15 +168,18 @@ pub async fn get_from_remote(
 pub fn current_token(db: &PgConnection) -> Option<Token> {
     match get_token(db) {
         None => None,
-        Some(token) => match token.is_expired() {
-            false => Some(token.clone()),
-            true => match get_from_remote_blocking(&token.refresh_token, GrantType::RefreshToken) {
-                Err(_) => None,
-                Ok(response) => {
-                    save_token(&response.to_token(), db);
-                    Some(response.to_token())
+        Some(token) => {
+            if token.is_expired() {
+                match get_from_remote_blocking(&token.refresh_token, GrantType::RefreshToken) {
+                    Err(_) => None,
+                    Ok(response) => {
+                        save_token(&response.to_token(), db);
+                        Some(response.to_token())
+                    }
                 }
-            },
-        },
+            } else {
+                Some(token)
+            }
+        }
     }
 }
