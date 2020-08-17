@@ -45,7 +45,7 @@ type StaticThreadSafeForecast = Arc<RwLock<Forecast>>;
 lazy_static! {
     pub static ref NOW_RES: StaticThreadSafeString = Arc::new(RwLock::new(String::new()));
     pub static ref THERMS: StaticThreadSafeTherms = Arc::new(RwLock::new(vec![]));
-    pub static ref FORECAST: StaticThreadSafeForecast = Arc::new(RwLock::new(Forecast::new()));
+    pub static ref FORECAST: StaticThreadSafeForecast = Arc::new(RwLock::new(Forecast::default()));
 }
 
 #[derive(Serialize)]
@@ -180,6 +180,7 @@ fn start_worker() {
 /// Sets the static NOW_RES from other static data points. Most of this method
 /// is just locking and unlocking data points for thread safety, to make sure
 /// we cause any memory corruption.
+/// TODO: make this function not panic.
 fn set_now_response() {
     let forecast = Arc::clone(&FORECAST);
     let forecast = forecast.read().unwrap();
@@ -193,7 +194,7 @@ fn set_now_response() {
     drop(therms);
     let writable_now = Arc::clone(&NOW_RES);
     let mut writable_now = writable_now.write().unwrap();
-    *writable_now = serde_json::to_string(&now_res).unwrap().clone();
+    *writable_now = serde_json::to_string(&now_res).unwrap();
     drop(writable_now);
 }
 
@@ -204,7 +205,8 @@ fn set_now_response() {
 //       there's a temporary problem with the database.
 fn establish_connection() -> PgConnection {
     let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
-    PgConnection::establish(&database_url).expect(&format!("Error connecting to {}", database_url))
+    PgConnection::establish(&database_url)
+        .unwrap_or_else(|_| panic!("Error connecting to {}", database_url))
 }
 
 /// # Parse JSON

@@ -38,7 +38,7 @@ pub struct Forecast {
     pub conditions: Vec<Condition>,
 }
 
-#[derive(Serialize, Clone)]
+#[derive(Serialize, Clone, Default)]
 pub struct Condition {
     date: String,
     condition: String,
@@ -46,8 +46,8 @@ pub struct Condition {
     night_temp: i32,
 }
 
-impl Forecast {
-    pub fn new() -> Forecast {
+impl Default for Forecast {
+    fn default() -> Forecast {
         Forecast {
             stale_time: Utc.timestamp(0, 0),
             conditions: vec![],

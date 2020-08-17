@@ -130,8 +130,8 @@ fn release_notes() -> Response<Body> {
 }
 
 async fn install_1(req: Request<Body>) -> Response<Body> {
-    match req.method() {
-        &Method::GET => match install().await {
+    match *req.method() {
+        Method::GET => match install().await {
             Ok(install_response) => match serde_json::to_string(&install_response) {
                 Ok(data) => Response::new(Body::from(data)),
                 Err(_) => internal_server_error(),
