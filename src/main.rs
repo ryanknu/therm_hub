@@ -18,11 +18,11 @@ use std::time::Duration;
 mod ecobee;
 mod error;
 mod http;
+mod schema;
 mod therm;
 mod weather;
-mod schema;
-use weather::{Condition, Forecast};
 use therm::Thermostat;
+use weather::{Condition, Forecast};
 
 static VERSION: u32 = 20200812;
 
@@ -57,17 +57,17 @@ struct NowResponse {
 /// # Therm Hub
 /// A backend system to bring my Ecobee thermostat readings together. Also,
 /// my first Rust project.
-/// 
+///
 /// It implements a background worker thread that retrieves data from remote
-/// API's and stores them in a database. It also runs an HTTP server for 
+/// API's and stores them in a database. It also runs an HTTP server for
 /// getting that data back. It utilizes some global static variables for
 /// moving data from the background thread to the main thread, for faster
-/// response times. 
-/// 
+/// response times.
+///
 /// I believe this is a good starter project because it covers a breadth of
 /// topics, from thread management, to ownership/borrowing, hyper HTTP server,
 /// serializing/deserializing structured data, etc.
-/// 
+///
 /// Crates Used:
 /// 1. Lazy Static - for initializing complex types as statics.
 /// 2. Serde - for turning objects into JSON and vice versa.
@@ -76,7 +76,7 @@ struct NowResponse {
 /// 5. Chrono - for date and time operations.
 #[tokio::main]
 async fn main() {
-    if cfg!(feature="offline") {
+    if cfg!(feature = "offline") {
         println!("Starting in offline mode...");
     }
     if check_env() && run_migrations() {
@@ -115,7 +115,7 @@ fn run_migrations() -> bool {
         Err(message) => {
             println!("Migrations failed! {:?}", message);
             false
-        },
+        }
     }
 }
 
@@ -128,10 +128,13 @@ fn start_worker() {
     thread::spawn(|| {
         loop {
             let mut therms: Vec<Thermostat> = Vec::new();
-            
             // TODO: error handling, clean up var names
             if let Some(weather) = weather::current() {
-                therms.push(Thermostat::new(String::from("weather.gov"), weather.start_time, weather.temperature));
+                therms.push(Thermostat::new(
+                    String::from("weather.gov"),
+                    weather.start_time,
+                    weather.temperature,
+                ));
             }
 
             if let Some(forecast) = weather::forecast() {
@@ -146,11 +149,17 @@ fn start_worker() {
             let db = establish_connection();
             if let Some(token) = ecobee::current_token(&db) {
                 for reading in ecobee::read(&token.access_token) {
-                    therms.push(Thermostat::new2(reading.name, reading.time, reading.is_hygrostat, reading.temperature, reading.relative_humidity));
+                    therms.push(Thermostat::new2(
+                        reading.name,
+                        reading.time,
+                        reading.is_hygrostat,
+                        reading.temperature,
+                        reading.relative_humidity,
+                    ));
                 }
             }
 
-            for (_i, therm) in therms.iter().enumerate() {
+            for therm in &therms {
                 therm.insert(&db);
             }
             drop(db);
@@ -161,7 +170,6 @@ fn start_worker() {
             drop(writable_therms);
 
             set_now_response();
-            
             thread::sleep(Duration::from_secs(300));
         }
     });
@@ -195,16 +203,16 @@ fn set_now_response() {
 // TODO: Remove `except`, we don't want the software to panic if
 //       there's a temporary problem with the database.
 fn establish_connection() -> PgConnection {
-    let database_url = env::var("DATABASE_URL")
-        .expect("DATABASE_URL must be set");
-    PgConnection::establish(&database_url)
-        .expect(&format!("Error connecting to {}", database_url))
+    let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
+    PgConnection::establish(&database_url).expect(&format!("Error connecting to {}", database_url))
 }
 
 /// # Parse JSON
 /// Parses JSON into the type you want using serde.
 pub fn parse<'de, T>(data: &'de str) -> Result<T, crate::error::Error>
-    where T: serde::Deserialize<'de> {
+where
+    T: serde::Deserialize<'de>,
+{
     let result: Result<T, serde_json::error::Error> = serde_json::from_str(&data);
     match result {
         Ok(data) => Ok(data),

@@ -1,9 +1,9 @@
-#[cfg(any(test, feature="offline"))]
-use chrono::{TimeZone};
-use chrono::{NaiveDateTime, DateTime, Utc};
-#[cfg(not(any(test, feature="offline")))]
+#[cfg(not(any(test, feature = "offline")))]
 use crate::parse;
-#[cfg(not(any(test, feature="offline")))]
+#[cfg(any(test, feature = "offline"))]
+use chrono::TimeZone;
+use chrono::{DateTime, NaiveDateTime, Utc};
+#[cfg(not(any(test, feature = "offline")))]
 use std::collections::HashMap;
 
 #[derive(Clone, Debug)]
@@ -51,16 +51,37 @@ where
 }
 
 #[allow(unused_variables)]
-#[cfg(any(test, feature="offline"))]
+#[cfg(any(test, feature = "offline"))]
 pub fn read(bearer_token: &str) -> Vec<Reading> {
     vec![
-        Reading { id: 0, is_hygrostat: false, time: Utc.timestamp(1595382655, 0), name: String::from("offline outside"),    relative_humidity: 0,  temperature: 77 },
-        Reading { id: 0, is_hygrostat: true,  time: Utc.timestamp(1595382655, 0), name: String::from("offline thermostat"), relative_humidity: 65, temperature: 73 },
-        Reading { id: 0, is_hygrostat: false, time: Utc.timestamp(1595382655, 0), name: String::from("offline fridge"),     relative_humidity: 0,  temperature: 42 },
+        Reading {
+            id: 0,
+            is_hygrostat: false,
+            time: Utc.timestamp(1595382655, 0),
+            name: String::from("offline outside"),
+            relative_humidity: 0,
+            temperature: 77,
+        },
+        Reading {
+            id: 0,
+            is_hygrostat: true,
+            time: Utc.timestamp(1595382655, 0),
+            name: String::from("offline thermostat"),
+            relative_humidity: 65,
+            temperature: 73,
+        },
+        Reading {
+            id: 0,
+            is_hygrostat: false,
+            time: Utc.timestamp(1595382655, 0),
+            name: String::from("offline fridge"),
+            relative_humidity: 0,
+            temperature: 42,
+        },
     ]
 }
 
-#[cfg(not(any(test, feature="offline")))]
+#[cfg(not(any(test, feature = "offline")))]
 pub fn read(bearer_token: &str) -> Vec<Reading> {
     let mut readings: HashMap<String, Reading> = HashMap::new();
     if let Ok(result) = http_request(bearer_token) {
@@ -78,14 +99,17 @@ pub fn read(bearer_token: &str) -> Vec<Reading> {
                                     reading.relative_humidity = value;
                                 }
                             } else {
-                                readings.insert(key.clone(), Reading {
-                                    id: 0,
-                                    name: key.clone(),
-                                    time: DateTime::<Utc>::from_utc(read_result.utc_time, Utc),
-                                    is_hygrostat,
-                                    temperature: if is_hygrostat { -10000 } else { value },
-                                    relative_humidity: if is_hygrostat { value } else { 0 },
-                                });
+                                readings.insert(
+                                    key.clone(),
+                                    Reading {
+                                        id: 0,
+                                        name: key.clone(),
+                                        time: DateTime::<Utc>::from_utc(read_result.utc_time, Utc),
+                                        is_hygrostat,
+                                        temperature: if is_hygrostat { -10000 } else { value },
+                                        relative_humidity: if is_hygrostat { value } else { 0 },
+                                    },
+                                );
                             }
                         }
                     }
@@ -96,10 +120,12 @@ pub fn read(bearer_token: &str) -> Vec<Reading> {
     readings.values().cloned().collect()
 }
 
-
 #[tokio::main]
 async fn http_request(bearer_token: &str) -> Result<String, reqwest::Error> {
-    println!("[ecobee] HTTP request read ecobee w/ token {}", bearer_token);
+    println!(
+        "[ecobee] HTTP request read ecobee w/ token {}",
+        bearer_token
+    );
 
     let client = reqwest::Client::new();
     let body = client.get("https://api.ecobee.com/1/thermostat?json=%7B%22selection%22%3A%7B%22selectionType%22%3A%22registered%22%2C%22selectionMatch%22%3A%22%22%2C%22includeRuntime%22%3A%22true%22%2C%22includeSensors%22%3A%22true%22%7D%7D")

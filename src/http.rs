@@ -1,11 +1,11 @@
-use chrono::{DateTime, Utc};
-use crate::ecobee::{install, get_token, save_token, GRANT_PIN};
+use crate::ecobee::{get_token, install, save_token, GRANT_PIN};
 use crate::Thermostat;
+use chrono::{DateTime, Utc};
 use dotenv::dotenv;
-use hyper::{Body, Request, Response, StatusCode, Method};
 use hyper::header::HeaderValue;
 use hyper::server::Server;
 use hyper::service::{make_service_fn, service_fn};
+use hyper::{Body, Method, Request, Response, StatusCode};
 use serde::Deserialize;
 use std::convert::Infallible;
 use std::env;
@@ -45,7 +45,10 @@ pub async fn start() {
                 "/install/2" => install_2(req).await,
                 _ => not_found(),
             };
-            response.headers_mut().insert("Access-Control-Allow-Origin", HeaderValue::from_str(&cors_host).unwrap());
+            response.headers_mut().insert(
+                "Access-Control-Allow-Origin",
+                HeaderValue::from_str(&cors_host).unwrap(),
+            );
             Ok::<_, Infallible>(response)
         }))
     }));
@@ -58,9 +61,9 @@ pub async fn start() {
 }
 
 /// # Now Handler
-/// Returns the current conditions. It does it by reading the static 
+/// Returns the current conditions. It does it by reading the static
 /// now response from the crate root and copying it into a request body.
-/// 
+///
 /// Returns a `NowRepsonse` in a response body.
 fn now() -> Response<Body> {
     let now = Arc::clone(&crate::NOW_RES);
@@ -72,10 +75,10 @@ fn now() -> Response<Body> {
 /// Returns a past historical report. This queries data from the database
 /// based on query parameters. All query parameters are mandatory and must
 /// be sent in alphabetical order.
-/// 
-/// Sample query string: 
+///
+/// Sample query string:
 /// end-date=2020-03-02T00:00:00-05:00&start-date=2020-03-01T00:00:00-05:00
-/// 
+///
 /// Returns a `Vec<Therm>` in a response body.
 fn past(req: Request<Body>) -> Response<Body> {
     let query: Option<PastInput> = query_parameters(&req);
@@ -90,9 +93,9 @@ fn past(req: Request<Body>) -> Response<Body> {
                 Ok(result) => match serde_json::to_string(&result) {
                     Err(_) => internal_server_error(),
                     Ok(body) => Response::new(Body::from(body)),
-                }
+                },
             }
-        },
+        }
     }
 }
 
@@ -110,7 +113,7 @@ fn time() -> Response<Body> {
 
 /// # Version
 /// Returns the current version of the ThermHub software.
-/// 
+///
 /// Returns a `VersionWrapper` in the response body.
 fn version() -> Response<Body> {
     Response::builder()
@@ -168,8 +171,10 @@ async fn install_2(req: Request<Body>) -> Response<Body> {
 
 /// # Query Parameters
 /// Turns an HTTP request into a struct containing the query parameters
-fn query_parameters<'de, T, V>(req: &'de Request<V>) -> Option<T> 
-    where T: Deserialize<'de> {
+fn query_parameters<'de, T, V>(req: &'de Request<V>) -> Option<T>
+where
+    T: Deserialize<'de>,
+{
     let query: &str = match req.uri().query() {
         Some(query) => query,
         None => "",
@@ -180,7 +185,7 @@ fn query_parameters<'de, T, V>(req: &'de Request<V>) -> Option<T>
         Err(err) => {
             eprintln!("[ hyper] could not decode query params {:?}", err);
             None
-        },
+        }
     }
 }
 
