@@ -1,4 +1,5 @@
 use crate::ecobee::{get_token, install, save_token, GRANT_PIN};
+use crate::image::photo_paths;
 use crate::Thermostat;
 use chrono::{DateTime, Utc};
 use dotenv::dotenv;
@@ -10,6 +11,7 @@ use serde::Deserialize;
 use std::convert::Infallible;
 use std::env;
 use std::fs;
+use std::io::Read;
 use std::net::SocketAddr;
 use std::sync::Arc;
 
@@ -43,6 +45,7 @@ pub async fn start() {
                 "/release-notes" => release_notes(),
                 "/install/1" => install_1(req).await,
                 "/install/2" => install_2(req).await,
+                "/background-photos" => background_photos(req).await,
                 _ => not_found(),
             };
             response.headers_mut().insert(
@@ -167,6 +170,34 @@ async fn install_2(req: Request<Body>) -> Response<Body> {
             }
         }
     }
+}
+
+async fn background_photos(req: Request<Body>) -> Response<Body> {
+    let mut body: Vec<u8> = Vec::new();
+    let paths = photo_paths();
+    let len = paths.len();
+    for (i, path) in paths.into_iter().enumerate() {
+        let file_name = path.file_name().unwrap().to_str().unwrap();
+        body.extend("--e03d07419ce04d4e79a14c76fb6fa7e0".bytes());
+        if i == len - 1 {
+            body.extend("--".bytes());
+        }
+        body.extend("\r\n".bytes());
+        body.extend("Content-Type: image/jpeg\r\n".bytes());
+        body.extend("Content-Disposition: form-data; name=\"".bytes());
+        body.extend(file_name.bytes());
+        body.extend("\"\r\n\r\n".bytes());
+        std::fs::File::open(path).unwrap().read_to_end(&mut body);
+        body.extend("\r\n".bytes());
+    }
+    Response::builder()
+        .status(StatusCode::OK)
+        .header(
+            "Content-Type",
+            "multipart/form-data;boundary=e03d07419ce04d4e79a14c76fb6fa7e0",
+        )
+        .body(Body::from(body))
+        .unwrap()
 }
 
 /// # Query Parameters

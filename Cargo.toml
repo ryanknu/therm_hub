@@ -9,16 +9,18 @@ edition = "2018"
 [dependencies]
 anyhow = "*"
 chrono = { version = "*", features = ["serde"] }
-diesel = { version = "1.4.4", features = ["postgres", "chrono"] }
+diesel = { version = "*", features = ["postgres", "chrono"] }
 diesel_migrations = "*"
-dotenv = "0.15.0"
-hyper = "0.13"
+dotenv = "*"
+glob = "*"
+hyper = "*"
+image = "*"
 lazy_static = "*"
 reqwest = "*"
 serde = { version = "*", features = ["derive"] }
 serde_json = "*"
 serde_urlencoded = "*"
-tokio = { version = "0.2", features = ["full"] }
+tokio = { version = "*", features = ["full"] }
 
 [features]
 offline = []

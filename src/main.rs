@@ -17,6 +17,7 @@ use std::time::Duration;
 
 mod ecobee;
 mod http;
+mod image;
 mod schema;
 mod therm;
 mod weather;
@@ -78,7 +79,7 @@ async fn main() {
     if cfg!(feature = "offline") {
         println!("Starting in offline mode...");
     }
-    if check_env() && run_migrations() {
+    if check_env() && run_migrations() && start_fetching_backgrounds() {
         // todo: worker::start() maybe?
         // TODO: stop if you can't get initial readings
         start_worker();
@@ -99,6 +100,8 @@ fn check_env() -> bool {
     env::var("WEATHER_URL_HOURLY").expect("WEATHER_URL_HOURLY must be set");
     env::var("CORS_HOST").expect("CORS_HOST must be set");
     env::var("ECOBEE_CLIENT_ID").expect("ECOBEE_CLIENT_ID must be set");
+    env::var("SHARED_ALBUM_ID").expect("SHARED_ALBUM_ID must be set");
+    env::var("PHOTO_CACHE_DIR").expect("PHOTO_CACHE_DIR must be set");
     true
 }
 
@@ -116,6 +119,14 @@ fn run_migrations() -> bool {
             false
         }
     }
+}
+
+fn start_fetching_backgrounds() -> bool {
+    thread::spawn(|| {
+        println!("Starting update of backgrounds...");
+        let _ = image::scrape_webstream();
+    });
+    true
 }
 
 /// # Start Worker Thread
