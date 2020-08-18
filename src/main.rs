@@ -7,6 +7,8 @@ extern crate lazy_static;
 #[macro_use]
 extern crate serde;
 
+use chrono::Duration as ChronoDuration;
+use chrono::Utc;
 use diesel::prelude::*;
 use diesel_migrations::*;
 use dotenv::dotenv;
@@ -143,65 +145,71 @@ fn start_fetching_backgrounds() -> bool {
 // TODO: shorten thread::sleep duration to 30 seconds and check the time
 fn start_worker() {
     thread::spawn(|| {
+        let mut last_timestamp = Utc::now()
+            .checked_sub_signed(ChronoDuration::seconds(1000))
+            .unwrap();
         loop {
-            let mut therms: Vec<Thermostat> = Vec::new();
-            // TODO: error handling, clean up var names
-            if let Some(weather) = weather::current() {
-                therms.push(Thermostat::new(
-                    String::from("weather.gov"),
-                    weather.start_time,
-                    weather.temperature,
-                ));
-            }
+            let now = Utc::now();
+            if now - last_timestamp > ChronoDuration::seconds(300) {
+                last_timestamp = Utc::now();
+                let mut therms: Vec<Thermostat> = Vec::new();
+                // TODO: error handling, clean up var names
+                if let Some(weather) = weather::current() {
+                    therms.push(Thermostat::new(
+                        String::from("weather.gov"),
+                        weather.start_time,
+                        weather.temperature,
+                    ));
+                }
 
-            if let Some(forecast) = weather::forecast() {
+                if let Some(forecast) = weather::forecast() {
+                    let now_res = Arc::clone(&NOW_RES);
+                    let mut now_res = now_res.write().unwrap();
+                    *now_res = NowResponse {
+                        forecast: forecast.conditions,
+                        thermostats: now_res.thermostats.clone(),
+                    };
+                    drop(now_res);
+                }
+
+                // Write thermostats to db
+                // TODO: don't write duplicates :P
+                let db = establish_connection();
+                if let Some(token) = ecobee::current_token(&db) {
+                    for reading in ecobee::read(&token.access_token) {
+                        therms.push(Thermostat::new2(
+                            reading.name,
+                            reading.time,
+                            reading.is_hygrostat,
+                            reading.temperature,
+                            reading.relative_humidity,
+                        ));
+                    }
+                }
+
+                for therm in &therms {
+                    therm.insert(&db);
+                }
+                drop(db);
                 let now_res = Arc::clone(&NOW_RES);
                 let mut now_res = now_res.write().unwrap();
                 *now_res = NowResponse {
-                    forecast: forecast.conditions,
-                    thermostats: now_res.thermostats.clone(),
+                    forecast: now_res.forecast.clone(),
+                    thermostats: therms,
                 };
                 drop(now_res);
+
+                // Do a one-time JSON encoding; store result static
+                let now_res = Arc::clone(&NOW_RES);
+                let now_res = now_res.read().unwrap();
+                let now_str = Arc::clone(&NOW_STR);
+                let mut now_str = now_str.write().unwrap();
+                *now_str = serde_json::to_string(&*now_res).unwrap();
+                drop(now_res);
+                drop(now_str);
             }
 
-            // Write thermostats to db
-            // TODO: don't write duplicates :P
-            let db = establish_connection();
-            if let Some(token) = ecobee::current_token(&db) {
-                for reading in ecobee::read(&token.access_token) {
-                    therms.push(Thermostat::new2(
-                        reading.name,
-                        reading.time,
-                        reading.is_hygrostat,
-                        reading.temperature,
-                        reading.relative_humidity,
-                    ));
-                }
-            }
-
-            for therm in &therms {
-                therm.insert(&db);
-            }
-            drop(db);
-
-            let now_res = Arc::clone(&NOW_RES);
-            let mut now_res = now_res.write().unwrap();
-            *now_res = NowResponse {
-                forecast: now_res.forecast.clone(),
-                thermostats: therms,
-            };
-            drop(now_res);
-
-            // Do a one-time JSON encoding; store result static
-            let now_res = Arc::clone(&NOW_RES);
-            let now_res = now_res.read().unwrap();
-            let now_str = Arc::clone(&NOW_STR);
-            let mut now_str = now_str.write().unwrap();
-            *now_str = serde_json::to_string(&*now_res).unwrap();
-            drop(now_res);
-            drop(now_str);
-
-            thread::sleep(Duration::from_secs(300));
+            thread::sleep(Duration::from_secs(4));
         }
     });
     println!("Worker thread spawned");
