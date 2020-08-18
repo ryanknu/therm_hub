@@ -22,7 +22,7 @@ mod schema;
 mod therm;
 mod weather;
 use therm::Thermostat;
-use weather::{Condition, Forecast};
+use weather::Condition;
 
 static VERSION: u32 = 20200812;
 
@@ -39,19 +39,26 @@ static VERSION: u32 = 20200812;
 /// This utilizes the lazy_static crate to enable a simpler syntax for creating
 /// static variables that require runtime initialization, for example calling
 /// the new function.
-type StaticThreadSafeString = Arc<RwLock<String>>;
-type StaticThreadSafeTherms = Arc<RwLock<Vec<Thermostat>>>;
-type StaticThreadSafeForecast = Arc<RwLock<Forecast>>;
+type StsString = Arc<RwLock<String>>;
+type StsNowResponse = Arc<RwLock<NowResponse>>;
 lazy_static! {
-    pub static ref NOW_RES: StaticThreadSafeString = Arc::new(RwLock::new(String::new()));
-    pub static ref THERMS: StaticThreadSafeTherms = Arc::new(RwLock::new(vec![]));
-    pub static ref FORECAST: StaticThreadSafeForecast = Arc::new(RwLock::new(Forecast::default()));
+    pub static ref NOW_STR: StsString = Arc::new(RwLock::new(String::new()));
+    static ref NOW_RES: StsNowResponse = Arc::new(RwLock::new(NowResponse::default()));
 }
 
 #[derive(Serialize)]
 struct NowResponse {
     forecast: Vec<Condition>,
     thermostats: Vec<Thermostat>,
+}
+
+impl Default for NowResponse {
+    fn default() -> Self {
+        Self {
+            forecast: vec![],
+            thermostats: vec![],
+        }
+    }
 }
 
 /// # Therm Hub
@@ -148,10 +155,13 @@ fn start_worker() {
             }
 
             if let Some(forecast) = weather::forecast() {
-                let static_forecast = Arc::clone(&FORECAST);
-                let mut static_forecast = static_forecast.write().unwrap();
-                *static_forecast = forecast;
-                drop(static_forecast);
+                let now_res = Arc::clone(&NOW_RES);
+                let mut now_res = now_res.write().unwrap();
+                *now_res = NowResponse {
+                    forecast: forecast.conditions,
+                    thermostats: now_res.thermostats.clone(),
+                };
+                drop(now_res);
             }
 
             // Write thermostats to db
@@ -174,38 +184,27 @@ fn start_worker() {
             }
             drop(db);
 
-            let writable_therms = Arc::clone(&THERMS);
-            let mut writable_therms = writable_therms.write().unwrap();
-            *writable_therms = therms;
-            drop(writable_therms);
+            let now_res = Arc::clone(&NOW_RES);
+            let mut now_res = now_res.write().unwrap();
+            *now_res = NowResponse {
+                forecast: now_res.forecast.clone(),
+                thermostats: therms,
+            };
+            drop(now_res);
 
-            set_now_response();
+            // Do a one-time JSON encoding; store result static
+            let now_res = Arc::clone(&NOW_RES);
+            let now_res = now_res.read().unwrap();
+            let now_str = Arc::clone(&NOW_STR);
+            let mut now_str = now_str.write().unwrap();
+            *now_str = serde_json::to_string(&*now_res).unwrap();
+            drop(now_res);
+            drop(now_str);
+
             thread::sleep(Duration::from_secs(300));
         }
     });
     println!("Worker thread spawned");
-}
-
-/// # Set Now Response
-/// Sets the static NOW_RES from other static data points. Most of this method
-/// is just locking and unlocking data points for thread safety, to make sure
-/// we cause any memory corruption.
-/// TODO: make this function not panic.
-fn set_now_response() {
-    let forecast = Arc::clone(&FORECAST);
-    let forecast = forecast.read().unwrap();
-    let therms = Arc::clone(&THERMS);
-    let therms = therms.read().unwrap();
-    let now_res = NowResponse {
-        forecast: (*forecast).conditions.clone(),
-        thermostats: (*therms).clone(),
-    };
-    drop(forecast);
-    drop(therms);
-    let writable_now = Arc::clone(&NOW_RES);
-    let mut writable_now = writable_now.write().unwrap();
-    *writable_now = serde_json::to_string(&now_res).unwrap();
-    drop(writable_now);
 }
 
 /// # Establish Connection

@@ -24,9 +24,11 @@ struct NewThermostat {
 }
 
 impl Thermostat {
-    pub fn time(&self) -> DateTime<Utc> {
-        DateTime::<Utc>::from_utc(self.time, Utc)
-    }
+    // RK: Commented out because it is never used, but I'm keeping it in case
+    //     I need to use `.time` (which is private since it is Naive) in the future.
+    // pub fn time(&self) -> DateTime<Utc> {
+    //     DateTime::<Utc>::from_utc(self.time, Utc)
+    // }
 
     pub fn new(name: String, time: DateTime<Utc>, temp: i32) -> Thermostat {
         Thermostat {

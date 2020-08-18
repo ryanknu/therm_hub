@@ -69,7 +69,7 @@ pub async fn start() {
 ///
 /// Returns a `NowRepsonse` in a response body.
 fn now() -> Response<Body> {
-    let now = Arc::clone(&crate::NOW_RES);
+    let now = Arc::clone(&crate::NOW_STR);
     let now = now.read().unwrap();
     Response::new(Body::from((*now).clone()))
 }
