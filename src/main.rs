@@ -134,7 +134,10 @@ fn run_migrations() -> bool {
 fn start_fetching_backgrounds() -> bool {
     thread::spawn(|| {
         println!("Starting update of backgrounds...");
-        let _ = image::scrape_webstream();
+        match image::scrape_webstream() {
+            Ok(_) => println!("Completed update of backgrouns"),
+            Err(err) => println!("Error updating backgrounds: {:?}", err),
+        };
     });
     true
 }

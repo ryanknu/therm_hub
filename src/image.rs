@@ -20,11 +20,7 @@ struct WebAssetUrls {
 }
 
 async fn download_and_store(url: &str, file_name: &str) -> anyhow::Result<()> {
-    let path = format!(
-        "{}/{}.jpg",
-        std::env::var("PHOTO_CACHE_DIR").unwrap(),
-        file_name
-    );
+    let path = format!("{}/{}.jpg", std::env::var("PHOTO_CACHE_DIR")?, file_name);
     let path = Path::new(&path);
 
     if path.is_file() {
@@ -55,7 +51,7 @@ async fn download_and_store(url: &str, file_name: &str) -> anyhow::Result<()> {
 
 #[tokio::main]
 pub async fn scrape_webstream() -> anyhow::Result<()> {
-    let album_id = std::env::var("SHARED_ALBUM_ID").unwrap();
+    let album_id = std::env::var("SHARED_ALBUM_ID")?;
     let data = reqwest::Client::new()
         .post(&format!(
             "https://p26-sharedstreams.icloud.com/{}/sharedstreams/webstream",
@@ -68,7 +64,7 @@ pub async fn scrape_webstream() -> anyhow::Result<()> {
         .text()
         .await?;
 
-    let web_stream: WebStream = serde_json::from_str(&data).unwrap();
+    let web_stream: WebStream = serde_json::from_str(&data)?;
 
     let guids: Vec<String> = web_stream
         .photos
@@ -76,10 +72,7 @@ pub async fn scrape_webstream() -> anyhow::Result<()> {
         .map(|x| x.photo_guid)
         .collect();
 
-    let body = format!(
-        "{{\"photoGuids\": {}}}",
-        serde_json::to_string(&guids).unwrap()
-    );
+    let body = format!("{{\"photoGuids\": {}}}", serde_json::to_string(&guids)?);
 
     let data = reqwest::Client::new()
         .post(&format!(
@@ -94,7 +87,7 @@ pub async fn scrape_webstream() -> anyhow::Result<()> {
         .text()
         .await?;
 
-    let map: WebAssetUrls = serde_json::from_str(&data).unwrap();
+    let map: WebAssetUrls = serde_json::from_str(&data)?;
     let map = map.items.as_object().unwrap();
 
     for (_, image) in map.into_iter() {
