@@ -1,3 +1,7 @@
+## 2020-08-18
+- Background photos
+- Shared secrets
+- Optimizations like you wouldn't believe, some of which made the server slower!
 ## 2020-08-13
 - `/past` now works. Have fun searching past data.
 - Time zones? What are those? Server now converts everything in and out to UTC.

@@ -36,8 +36,13 @@ pub async fn start() {
     let server = server.serve(make_service_fn(|_connection| async {
         Ok::<_, Infallible>(service_fn(|req: Request<Body>| async move {
             println!("[ hyper] Incoming: {}", req.uri().path());
+            let path = if !is_authorized(&req) {
+                &"/forbidden"
+            } else {
+                req.uri().path()
+            };
             let cors_host = env::var("CORS_HOST").unwrap();
-            let mut response = match req.uri().path() {
+            let mut response = match path {
                 "/now" => now(),
                 "/past" => past(req),
                 "/time" => time(),
@@ -46,6 +51,7 @@ pub async fn start() {
                 "/install/1" => install_1(req).await,
                 "/install/2" => install_2(req).await,
                 "/background-photos" => background_photos(req).await,
+                "/forbidden" => forbidden(),
                 _ => not_found(),
             };
             response.headers_mut().insert(
@@ -200,6 +206,23 @@ async fn background_photos(req: Request<Body>) -> Response<Body> {
         .unwrap()
 }
 
+/// # Check Authorization Header
+/// Checks to see if an authorization header contains a bearer token that is
+/// the env var SHARED_SECRET.
+fn is_authorized<'a, V>(req: &'a Request<V>) -> bool {
+    let shared_secret = std::env::var("SHARED_SECRET").unwrap().to_lowercase();
+    match req.headers().get("authorization") {
+        Some(header_value) => match header_value.to_str() {
+            Ok(header_str) => header_str
+                .to_lowercase()
+                .replace("bearer ", "")
+                .eq(&shared_secret),
+            Err(_) => false,
+        },
+        None => false,
+    }
+}
+
 /// # Query Parameters
 /// Turns an HTTP request into a struct containing the query parameters
 fn query_parameters<'de, T, V>(req: &'de Request<V>) -> Option<T>
@@ -235,6 +258,15 @@ fn bad_request() -> Response<Body> {
     Response::builder()
         .status(StatusCode::BAD_REQUEST)
         .body(Body::from("400 Bad Request"))
+        .unwrap()
+}
+
+/// # Forbidden
+/// Returns a response payload that indicates a 403 forbidden.
+fn forbidden() -> Response<Body> {
+    Response::builder()
+        .status(StatusCode::FORBIDDEN)
+        .body(Body::from("403 Forbidden"))
         .unwrap()
 }
 

@@ -2,12 +2,20 @@ openapi: 3.0.0
 
 info:
   title: Therm Hub API
-  version: 20200720
+  version: 20200818
 
 servers:
   - url: http://localhost:3000
+
+security:
+  - bearerAuth: []
   
 components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      
   schemas:
     Condition:
       type: object
@@ -176,6 +184,17 @@ paths:
           description: Release notes.
           content:
             text/markdown:
+              schema:
+                type: string
+
+  /background-photos:
+    get:
+      summary: Gets background photos
+      responses:
+        '200':
+          description: Multiple files.
+          content:
+            multipart/form-data:
               schema:
                 type: string
               

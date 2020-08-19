@@ -26,7 +26,7 @@ mod weather;
 use therm::Thermostat;
 use weather::Condition;
 
-static VERSION: u32 = 20200812;
+static VERSION: u32 = 20200818;
 
 /// Set up in-memory data cache for web server. We want to keep track of:
 /// 1. The entire string repsonse for "/now" requests, since it only changes
@@ -111,6 +111,7 @@ fn check_env() -> bool {
     env::var("ECOBEE_CLIENT_ID").expect("ECOBEE_CLIENT_ID must be set");
     env::var("SHARED_ALBUM_ID").expect("SHARED_ALBUM_ID must be set");
     env::var("PHOTO_CACHE_DIR").expect("PHOTO_CACHE_DIR must be set");
+    env::var("SHARED_SECRET").expect("SHARED_SECRET must be set");
     true
 }
 
