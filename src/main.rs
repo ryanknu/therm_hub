@@ -135,7 +135,7 @@ fn start_fetching_backgrounds() -> bool {
     thread::spawn(|| {
         println!("Starting update of backgrounds...");
         match image::scrape_webstream() {
-            Ok(_) => println!("Completed update of backgrouns"),
+            Ok(_) => println!("Completed update of backgrounds"),
             Err(err) => println!("Error updating backgrounds: {:?}", err),
         };
     });

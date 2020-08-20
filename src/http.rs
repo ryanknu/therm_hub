@@ -38,6 +38,8 @@ pub async fn start() {
             println!("[ hyper] Incoming: {}", req.uri().path());
             let path = if !is_authorized(&req) {
                 &"/forbidden"
+            } else if req.method().eq(&Method::OPTIONS) {
+                &"/options"
             } else {
                 req.uri().path()
             };
@@ -52,6 +54,7 @@ pub async fn start() {
                 "/install/2" => install_2(req).await,
                 "/background-photos" => background_photos(req).await,
                 "/forbidden" => forbidden(),
+                "/options" => Response::new(Body::from("200 OK")),
                 _ => not_found(),
             };
             // Add CORS headers
