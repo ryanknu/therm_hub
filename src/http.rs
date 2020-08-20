@@ -54,9 +54,14 @@ pub async fn start() {
                 "/forbidden" => forbidden(),
                 _ => not_found(),
             };
+            // Add CORS headers
             response.headers_mut().insert(
                 "Access-Control-Allow-Origin",
                 HeaderValue::from_str(&cors_host).unwrap(),
+            );
+            response.headers_mut().insert(
+                "Access-Control-Allow-Headers",
+                HeaderValue::from_str("authorization").unwrap(),
             );
             Ok::<_, Infallible>(response)
         }))
