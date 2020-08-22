@@ -17,6 +17,11 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - name: Build
-      run: cargo build --verbose
+      run: cargo build --release --verbose
+    - name: Upload
+      uses: actions/upload-artifact@v2
+      with:
+        name: therm_hub
+        path: target/release/therm_hub
     - name: Run tests
       run: cargo test --verbose
