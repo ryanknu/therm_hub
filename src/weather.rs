@@ -26,7 +26,7 @@ impl Into<DailyCondition> for ApiCondition {
     fn into(self) -> DailyCondition {
         DailyCondition {
             date: self.start_time,
-            condition: self.short_forecast,
+            condition: self.detailed_forecast,
             day_temperature: -1000,
             night_temperature: -1000,
         }
@@ -37,7 +37,7 @@ impl Into<HourlyCondition> for ApiCondition {
     fn into(self) -> HourlyCondition {
         HourlyCondition {
             date: self.start_time,
-            condition: self.detailed_forecast,
+            condition: self.short_forecast,
             temperature: self.temperature,
         }
     }
