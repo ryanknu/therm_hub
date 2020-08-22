@@ -19,13 +19,14 @@ pub struct ApiCondition {
     pub temperature: i32,
     pub temperature_unit: String,
     pub detailed_forecast: String,
+    pub short_forecast: String,
 }
 
 impl Into<DailyCondition> for ApiCondition {
     fn into(self) -> DailyCondition {
         DailyCondition {
             date: self.start_time,
-            condition: self.detailed_forecast,
+            condition: self.short_forecast,
             day_temperature: -1000,
             night_temperature: -1000,
         }
@@ -150,7 +151,7 @@ pub fn daily_forecast() -> Option<Forecast<DailyCondition>> {
 #[cfg(not(any(test, feature = "offline")))]
 pub fn daily_forecast() -> Option<Forecast<DailyCondition>> {
     match weather_request_retry_wrapper(false) {
-        Ok(response) => Some(Forecast::from(response.into())),
+        Ok(response) => Some(response.into()),
         Err(err) => {
             eprintln!("Failed getting weather! {:?}", err);
             None
@@ -196,7 +197,7 @@ pub fn hourly_forecast() -> Option<Forecast<HourlyCondition>> {
 #[cfg(not(any(test, feature = "offline")))]
 pub fn hourly_forecast() -> Option<Forecast<HourlyCondition>> {
     match weather_request_retry_wrapper(true) {
-        Ok(response) => Some(Forecast::from(response.into())),
+        Ok(response) => Some(response.into()),
         Err(err) => {
             eprintln!("Failed getting weather! {:?}", err);
             None
