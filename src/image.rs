@@ -1,24 +1,31 @@
+#[cfg(not(any(test, feature = "offline")))]
 use serde_json::Value;
-use std::path::{Path, PathBuf};
+#[cfg(not(any(test, feature = "offline")))]
+use std::path::Path;
+use std::path::PathBuf;
 
 // TODO: Make this file a lot more safe
 
+#[cfg(not(any(test, feature = "offline")))]
 #[derive(Deserialize)]
 struct WebStream {
     photos: Vec<Photo>,
 }
 
+#[cfg(not(any(test, feature = "offline")))]
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct Photo {
     photo_guid: String,
 }
 
+#[cfg(not(any(test, feature = "offline")))]
 #[derive(Deserialize)]
 struct WebAssetUrls {
     items: Value,
 }
 
+#[cfg(not(any(test, feature = "offline")))]
 async fn download_and_store(url: &str, file_name: &str) -> anyhow::Result<()> {
     let path = format!("{}/{}.jpg", std::env::var("PHOTO_CACHE_DIR")?, file_name);
     let path = Path::new(&path);
@@ -50,6 +57,13 @@ async fn download_and_store(url: &str, file_name: &str) -> anyhow::Result<()> {
 }
 
 #[tokio::main]
+#[cfg(any(test, feature = "offline"))]
+pub async fn scrape_webstream() -> anyhow::Result<()> {
+    Ok(())
+}
+
+#[tokio::main]
+#[cfg(not(any(test, feature = "offline")))]
 pub async fn scrape_webstream() -> anyhow::Result<()> {
     let album_id = std::env::var("SHARED_ALBUM_ID")?;
     let data = reqwest::Client::new()

@@ -10,7 +10,6 @@ use hyper::{Body, Method, Request, Response, StatusCode};
 use serde::Deserialize;
 use std::convert::Infallible;
 use std::env;
-use std::fs;
 use std::io::Read;
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -28,6 +27,7 @@ struct PastInput {
 
 /// # Start Server
 /// Starts the hyper HTTP server. Also contains the routing code.
+#[tokio::main]
 pub async fn start() {
     dotenv().ok();
     let port: u16 = env::var("LISTEN_PORT").unwrap().parse().unwrap();
@@ -48,11 +48,11 @@ pub async fn start() {
                 "/now" => now(),
                 "/past" => past(req),
                 "/time" => time(),
-                "/v" | "/version" => version(),
                 "/release-notes" => release_notes(),
                 "/install/1" => install_1(req).await,
                 "/install/2" => install_2(req).await,
-                "/background-photos" => background_photos(req).await,
+                "/background-photos" => background_photos(),
+                "/background-photos/refresh" => background_photos_refresh(),
                 "/forbidden" => forbidden(),
                 "/options" => Response::new(Body::from("200 OK")),
                 _ => not_found(),
@@ -128,21 +128,11 @@ fn time() -> Response<Body> {
         .unwrap()
 }
 
-/// # Version
-/// Returns the current version of the ThermHub software.
-///
-/// Returns a `VersionWrapper` in the response body.
-fn version() -> Response<Body> {
-    Response::builder()
-        .header("Content-Type", "text/plain")
-        .body(Body::from(format!("{}", crate::VERSION)))
-        .unwrap()
-}
-
 fn release_notes() -> Response<Body> {
     Response::builder()
         .header("Content-Type", "text/markdown")
-        .body(Body::from(fs::read_to_string("release-notes.md").unwrap()))
+        .header("X-Therm-Hub-Version", format!("{}", crate::VERSION))
+        .body(Body::from(include_str!("../release-notes.md")))
         .unwrap()
 }
 
@@ -186,7 +176,9 @@ async fn install_2(req: Request<Body>) -> Response<Body> {
     }
 }
 
-async fn background_photos(req: Request<Body>) -> Response<Body> {
+/// # Background Photos
+/// Returns the background photos for the app in a multi-part repsonse
+fn background_photos() -> Response<Body> {
     let mut body: Vec<u8> = Vec::new();
     let paths = photo_paths();
     let len = paths.len();
@@ -201,7 +193,13 @@ async fn background_photos(req: Request<Body>) -> Response<Body> {
         body.extend("Content-Disposition: form-data; name=\"".bytes());
         body.extend(file_name.bytes());
         body.extend("\"\r\n\r\n".bytes());
-        std::fs::File::open(path).unwrap().read_to_end(&mut body);
+        if std::fs::File::open(path)
+            .unwrap()
+            .read_to_end(&mut body)
+            .is_err()
+        {
+            return internal_server_error();
+        }
         body.extend("\r\n".bytes());
     }
     Response::builder()
@@ -214,10 +212,18 @@ async fn background_photos(req: Request<Body>) -> Response<Body> {
         .unwrap()
 }
 
+/// # Background Photos Refresh
+/// Starts the process of refreshing backgrounds, and immediately returns.
+/// Please do not call this multiple times in rapid succession :)
+fn background_photos_refresh() -> Response<Body> {
+    crate::start_fetching_backgrounds();
+    Response::new(Body::from("Refresh started"))
+}
+
 /// # Check Authorization Header
 /// Checks to see if an authorization header contains a bearer token that is
 /// the env var SHARED_SECRET.
-fn is_authorized<'a, V>(req: &'a Request<V>) -> bool {
+fn is_authorized<V>(req: &Request<V>) -> bool {
     let shared_secret = std::env::var("SHARED_SECRET").unwrap().to_lowercase();
     match req.headers().get("authorization") {
         Some(header_value) => match header_value.to_str() {

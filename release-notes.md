@@ -1,3 +1,11 @@
+## 2020-08-22
+- Refactored the worker thread.
+- Initial data pulls are executed and complete before background thread/http server are spawned.
+- Retries added to weather.gov and database connection routines.
+- Release notes API should work in production now!
+- Added a method you can poke from the API to start a background photos refresh.
+- Removed version API. You can now get the version from the /release-notes endpoint, in a header.
+- Background photos will no longer be queried in offline mode.
 ## 2020-08-18
 - Background photos
 - Shared secrets

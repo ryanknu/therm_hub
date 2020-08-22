@@ -7,15 +7,12 @@ extern crate lazy_static;
 #[macro_use]
 extern crate serde;
 
-use chrono::Duration as ChronoDuration;
-use chrono::Utc;
 use diesel::prelude::*;
 use diesel_migrations::*;
 use dotenv::dotenv;
 use std::env;
 use std::sync::{Arc, RwLock};
 use std::thread;
-use std::time::Duration;
 
 mod ecobee;
 mod http;
@@ -23,10 +20,11 @@ mod image;
 mod schema;
 mod therm;
 mod weather;
+mod worker;
 use therm::Thermostat;
-use weather::Condition;
+use weather::{DailyCondition, HourlyCondition};
 
-static VERSION: u32 = 20200818;
+static VERSION: u32 = 20200822;
 
 /// Set up in-memory data cache for web server. We want to keep track of:
 /// 1. The entire string repsonse for "/now" requests, since it only changes
@@ -50,14 +48,16 @@ lazy_static! {
 
 #[derive(Serialize)]
 struct NowResponse {
-    forecast: Vec<Condition>,
+    forecast_daily: Vec<DailyCondition>,
+    forecast_hourly: Vec<HourlyCondition>,
     thermostats: Vec<Thermostat>,
 }
 
 impl Default for NowResponse {
     fn default() -> Self {
         Self {
-            forecast: vec![],
+            forecast_daily: vec![],
+            forecast_hourly: vec![],
             thermostats: vec![],
         }
     }
@@ -83,16 +83,13 @@ impl Default for NowResponse {
 /// 3. Diesel - for storing data in the database and retrieving it.
 /// 4. Hyper - for HTTP server implementation.
 /// 5. Chrono - for date and time operations.
-#[tokio::main]
-async fn main() {
+fn main() {
     if cfg!(feature = "offline") {
         println!("Starting in offline mode...");
     }
-    if check_env() && run_migrations() && start_fetching_backgrounds() {
-        // todo: worker::start() maybe?
-        // TODO: stop if you can't get initial readings
-        start_worker();
-        http::start().await;
+    if check_env() && run_migrations() && start_fetching_backgrounds() && worker::check() {
+        worker::start();
+        http::start();
     }
 }
 
@@ -131,6 +128,9 @@ fn run_migrations() -> bool {
     }
 }
 
+/// # Start Fetching Backgrounds
+/// Creates a thread that will populate the backgrounds directory in the
+/// background.
 fn start_fetching_backgrounds() -> bool {
     thread::spawn(|| {
         println!("Starting update of backgrounds...");
@@ -142,92 +142,21 @@ fn start_fetching_backgrounds() -> bool {
     true
 }
 
-/// # Start Worker Thread
-/// The worker thread is a background program that retrieves information
-/// from Internet services every 5 minutes. It will put historical entries
-/// in the database, and emits the current detail on a channel
-// TODO: shorten thread::sleep duration to 30 seconds and check the time
-fn start_worker() {
-    thread::spawn(|| {
-        let mut last_timestamp = Utc::now()
-            .checked_sub_signed(ChronoDuration::seconds(1000))
-            .unwrap();
-        loop {
-            let now = Utc::now();
-            if now - last_timestamp > ChronoDuration::seconds(300) {
-                last_timestamp = Utc::now();
-                let mut therms: Vec<Thermostat> = Vec::new();
-                // TODO: error handling, clean up var names
-                if let Some(weather) = weather::current() {
-                    therms.push(Thermostat::new(
-                        String::from("weather.gov"),
-                        weather.start_time,
-                        weather.temperature,
-                    ));
-                }
-
-                if let Some(forecast) = weather::forecast() {
-                    let now_res = Arc::clone(&NOW_RES);
-                    let mut now_res = now_res.write().unwrap();
-                    *now_res = NowResponse {
-                        forecast: forecast.conditions,
-                        thermostats: now_res.thermostats.clone(),
-                    };
-                    drop(now_res);
-                }
-
-                // Write thermostats to db
-                // TODO: don't write duplicates :P
-                let db = establish_connection();
-                if let Some(token) = ecobee::current_token(&db) {
-                    for reading in ecobee::read(&token.access_token) {
-                        therms.push(Thermostat::new2(
-                            reading.name,
-                            reading.time,
-                            reading.is_hygrostat,
-                            reading.temperature,
-                            reading.relative_humidity,
-                        ));
-                    }
-                }
-
-                for therm in &therms {
-                    therm.insert(&db);
-                }
-                drop(db);
-                let now_res = Arc::clone(&NOW_RES);
-                let mut now_res = now_res.write().unwrap();
-                *now_res = NowResponse {
-                    forecast: now_res.forecast.clone(),
-                    thermostats: therms,
-                };
-                drop(now_res);
-
-                // Do a one-time JSON encoding; store result static
-                let now_res = Arc::clone(&NOW_RES);
-                let now_res = now_res.read().unwrap();
-                let now_str = Arc::clone(&NOW_STR);
-                let mut now_str = now_str.write().unwrap();
-                *now_str = serde_json::to_string(&*now_res).unwrap();
-                drop(now_res);
-                drop(now_str);
-            }
-
-            thread::sleep(Duration::from_secs(4));
-        }
-    });
-    println!("Worker thread spawned");
-}
-
 /// # Establish Connection
 /// Returns a database connection from a connection string in an
 /// environment variable. Diesel crate boilerplate code.
-// TODO: Remove `except`, we don't want the software to panic if
-//       there's a temporary problem with the database.
 fn establish_connection() -> PgConnection {
     let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
-    PgConnection::establish(&database_url)
-        .unwrap_or_else(|_| panic!("Error connecting to {}", database_url))
+    for _ in 1..5 {
+        let connection_result = PgConnection::establish(&database_url);
+        if let Ok(connection) = connection_result {
+            return connection;
+        } else if let Err(err) = connection_result {
+            eprintln!("{:?}", err);
+        }
+        std::thread::sleep(std::time::Duration::from_secs(2));
+    }
+    panic!("Error connecting to {}", database_url);
 }
 
 /// # Parse JSON

@@ -2,79 +2,87 @@ use chrono::{Date, DateTime, TimeZone, Timelike, Utc};
 use std::collections::HashMap;
 
 #[derive(Deserialize, Debug)]
-struct ForecastResponse {
-    properties: ForecastProperties,
+struct ApiResponse {
+    properties: ApiWrapper,
 }
 
 #[derive(Deserialize, Debug)]
-struct ForecastProperties {
+struct ApiWrapper {
     updated: String,
-    periods: Vec<ForecastTherm>,
+    periods: Vec<ApiCondition>,
 }
 
 #[derive(Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
-pub struct ForecastTherm {
+pub struct ApiCondition {
     pub start_time: DateTime<Utc>,
     pub temperature: i32,
     pub temperature_unit: String,
     pub detailed_forecast: String,
 }
 
-impl Into<Condition> for ForecastTherm {
-    fn into(self) -> Condition {
-        Condition {
-            date: format!("{}", self.start_time.date().format("%Y-%m-%d")),
+impl Into<DailyCondition> for ApiCondition {
+    fn into(self) -> DailyCondition {
+        DailyCondition {
+            date: self.start_time,
             condition: self.detailed_forecast,
-            day_temp: -1000,
-            night_temp: -1000,
+            day_temperature: -1000,
+            night_temperature: -1000,
+        }
+    }
+}
+
+impl Into<HourlyCondition> for ApiCondition {
+    fn into(self) -> HourlyCondition {
+        HourlyCondition {
+            date: self.start_time,
+            condition: self.detailed_forecast,
+            temperature: self.temperature,
         }
     }
 }
 
 #[derive(Clone)]
-pub struct Forecast {
+pub struct Forecast<T> {
     stale_time: DateTime<Utc>,
-    pub conditions: Vec<Condition>,
+    pub conditions: Vec<T>,
 }
 
-#[derive(Serialize, Clone, Default)]
-pub struct Condition {
-    date: String,
+#[derive(Serialize, Clone)]
+pub struct DailyCondition {
+    date: DateTime<Utc>,
     condition: String,
-    day_temp: i32,
-    night_temp: i32,
+    day_temperature: i32,
+    night_temperature: i32,
 }
 
-impl Default for Forecast {
-    fn default() -> Forecast {
-        Forecast {
-            stale_time: Utc.timestamp(0, 0),
-            conditions: vec![],
-        }
-    }
+#[derive(Serialize, Clone)]
+pub struct HourlyCondition {
+    pub date: DateTime<Utc>,
+    pub condition: String,
+    pub temperature: i32,
 }
 
-impl From<Vec<ForecastTherm>> for Forecast {
-    /// # Forecast From Therms
-    /// Turns ForecastTherms into a Forecast. Under the hood, it uses a HashMap
-    /// to arrange ForecastTherms by date, and combine multiples (daily and
-    /// nightly) into single elements.
-    fn from(therms: Vec<ForecastTherm>) -> Forecast {
-        let mut map: HashMap<Date<Utc>, Condition> = HashMap::new();
+/// # Forecast From Therms
+/// Turns ApiConditions into a Forecast. Under the hood, it uses a HashMap
+/// to arrange ApiConditions by date, and combine multiples (daily and
+/// nightly) into single elements.
+impl Into<Forecast<DailyCondition>> for Vec<ApiCondition> {
+    fn into(self) -> Forecast<DailyCondition> {
+        let mut map: HashMap<Date<Utc>, DailyCondition> = HashMap::new();
         let mut max = Utc.timestamp(0, 0);
-        for therm in therms {
-            let key = therm.start_time.date();
-            let hour = therm.start_time.hour();
-            let temp = therm.temperature * 10;
-            if therm.start_time.timestamp() > max.timestamp() {
-                max = therm.start_time;
+        for condition in self {
+            let key = condition.start_time.date();
+            let hour = condition.start_time.hour();
+            let temp = condition.temperature * 10;
+            if condition.start_time.timestamp() > max.timestamp() {
+                max = condition.start_time;
             }
-            let mut condition = map.entry(key).or_insert_with(|| therm.into());
+            let mut condition = map.entry(key).or_insert_with(|| condition.into());
             if hour < 12 {
-                condition.day_temp = temp;
+                condition.day_temperature = temp;
             } else {
-                condition.night_temp = temp;
+                condition.night_temperature = temp;
             }
         }
         Forecast {
@@ -84,35 +92,14 @@ impl From<Vec<ForecastTherm>> for Forecast {
     }
 }
 
-/// # Current Weather
-/// Returns a single forecast therm for what the weather is currently like.
-#[cfg(any(test, feature = "offline"))]
-pub fn current() -> Option<ForecastTherm> {
-    Some(ForecastTherm {
-        start_time: DateTime::parse_from_rfc3339("2020-01-01T00:00:00-05:00")
-            .unwrap()
-            .with_timezone(&Utc),
-        temperature: 770,
-        temperature_unit: String::from("F"),
-        detailed_forecast: String::from("Slight Chance Showers And Thunderstorms"),
-    })
-}
-
-#[cfg(not(any(test, feature = "offline")))]
-pub fn current() -> Option<ForecastTherm> {
-    match weather_request(true) {
-        Ok(response) => match most_applicable(response) {
-            Some(therm) => Some(ForecastTherm {
-                detailed_forecast: therm.detailed_forecast,
-                start_time: therm.start_time,
-                temperature: therm.temperature * 10,
-                temperature_unit: therm.temperature_unit,
-            }),
-            None => None,
-        },
-        Err(err) => {
-            eprintln!("Failed getting weather! {:?}", err);
-            None
+impl Into<Forecast<HourlyCondition>> for Vec<ApiCondition> {
+    fn into(self) -> Forecast<HourlyCondition> {
+        Forecast {
+            stale_time: Utc::now(),
+            conditions: self
+                .into_iter()
+                .map(|condition| -> HourlyCondition { condition.into() })
+                .collect(),
         }
     }
 }
@@ -122,48 +109,48 @@ pub fn current() -> Option<ForecastTherm> {
 /// Should only fetch when the forecast on hand is stale. Return None
 /// if no change.
 #[cfg(any(test, feature = "offline"))]
-pub fn forecast() -> Option<Forecast> {
+pub fn daily_forecast() -> Option<Forecast<DailyCondition>> {
     Some(Forecast {
         stale_time: Utc.timestamp(0, 0),
         conditions: vec![
-            Condition {
-                date: String::from("2020-07-20"),
+            DailyCondition {
+                date: Utc.timestamp(1595203200, 0),
                 condition: String::from("Sunny"),
-                day_temp: 800,
-                night_temp: 710,
+                day_temperature: 800,
+                night_temperature: 710,
             },
-            Condition {
-                date: String::from("2020-07-21"),
+            DailyCondition {
+                date: Utc.timestamp(1595289600, 0),
                 condition: String::from("Sunny"),
-                day_temp: 780,
-                night_temp: 700,
+                day_temperature: 780,
+                night_temperature: 700,
             },
-            Condition {
-                date: String::from("2020-07-22"),
+            DailyCondition {
+                date: Utc.timestamp(1595376000, 0),
                 condition: String::from("Partly Sunny"),
-                day_temp: 810,
-                night_temp: 710,
+                day_temperature: 810,
+                night_temperature: 710,
             },
-            Condition {
-                date: String::from("2020-07-23"),
+            DailyCondition {
+                date: Utc.timestamp(1595462400, 0),
                 condition: String::from("Raining"),
-                day_temp: 750,
-                night_temp: 680,
+                day_temperature: 750,
+                night_temperature: 680,
             },
-            Condition {
-                date: String::from("2020-07-24"),
+            DailyCondition {
+                date: Utc.timestamp(1595548800, 0),
                 condition: String::from("Thunder Storms"),
-                day_temp: 720,
-                night_temp: 670,
+                day_temperature: 720,
+                night_temperature: 670,
             },
         ],
     })
 }
 
 #[cfg(not(any(test, feature = "offline")))]
-pub fn forecast() -> Option<Forecast> {
-    match weather_request(false) {
-        Ok(response) => Some(Forecast::from(response)),
+pub fn daily_forecast() -> Option<Forecast<DailyCondition>> {
+    match weather_request_retry_wrapper(false) {
+        Ok(response) => Some(Forecast::from(response.into())),
         Err(err) => {
             eprintln!("Failed getting weather! {:?}", err);
             None
@@ -171,37 +158,72 @@ pub fn forecast() -> Option<Forecast> {
     }
 }
 
-/// # Most Applicable
-/// Searches for and returns the closest ForecastTherm in a vector whose
-/// start_time is closest to the current time. I admit this is not the proper
-/// way to consume this data (the system *should* return the ForecastTherm
-/// which the curren time is between) but this was a fun exercise to implement
-/// closest.
+//////////////////////////////////
+#[cfg(any(test, feature = "offline"))]
+pub fn hourly_forecast() -> Option<Forecast<HourlyCondition>> {
+    Some(Forecast {
+        stale_time: Utc.timestamp(0, 0),
+        conditions: vec![
+            HourlyCondition {
+                date: Utc.timestamp(1595232000, 0),
+                condition: String::from("Sunny"),
+                temperature: 800,
+            },
+            HourlyCondition {
+                date: Utc.timestamp(1595235600, 0),
+                condition: String::from("Sunny"),
+                temperature: 780,
+            },
+            HourlyCondition {
+                date: Utc.timestamp(1595239200, 0),
+                condition: String::from("Partly Sunny"),
+                temperature: 810,
+            },
+            HourlyCondition {
+                date: Utc.timestamp(1595242800, 0),
+                condition: String::from("Raining"),
+                temperature: 750,
+            },
+            HourlyCondition {
+                date: Utc.timestamp(1595246400, 0),
+                condition: String::from("Thunder Storms"),
+                temperature: 720,
+            },
+            // TODO: return however many the weather.gov api returns
+        ],
+    })
+}
 #[cfg(not(any(test, feature = "offline")))]
-fn most_applicable(therms: Vec<ForecastTherm>) -> Option<ForecastTherm> {
-    let mut index = 0;
-    let mut min_difference = 999999999;
-    let now = Utc::now();
-    for (i, therm) in therms.iter().enumerate() {
-        let difference = now.timestamp() - therm.start_time.timestamp();
-        let difference = difference.abs();
-        if difference < min_difference {
-            min_difference = difference;
-            index = i;
+pub fn hourly_forecast() -> Option<Forecast<HourlyCondition>> {
+    match weather_request_retry_wrapper(true) {
+        Ok(response) => Some(Forecast::from(response.into())),
+        Err(err) => {
+            eprintln!("Failed getting weather! {:?}", err);
+            None
         }
     }
-    match therms.get(index) {
-        Some(therm) => Some(therm.clone()),
-        _ => None,
+}
+/// //////////////////////////////
+
+/// # Weather Request Retry Wrapper
+/// Calls `weather_request` but implements up to 5 retries.
+#[cfg(not(any(test, feature = "offline")))]
+fn weather_request_retry_wrapper(hourly: bool) -> anyhow::Result<Vec<ApiCondition>> {
+    for _ in 1..5 {
+        if let Ok(result) = weather_request(hourly) {
+            return Ok(result);
+        }
+        std::thread::sleep(std::time::Duration::from_secs(2));
     }
+    weather_request(hourly)
 }
 
 /// # Weather Request
 /// Gets either hourly or daily weather (based on boolean input var) from weather.gov
-/// and returns a vector of ForecastTherm
+/// and returns a vector of ApiCondition
 #[cfg(not(any(test, feature = "offline")))]
 #[tokio::main]
-async fn weather_request(hourly: bool) -> anyhow::Result<Vec<ForecastTherm>> {
+async fn weather_request(hourly: bool) -> anyhow::Result<Vec<ApiCondition>> {
     println!(
         "[worker] Getting {} weather",
         if hourly { "hourly" } else { "daily" }
@@ -221,8 +243,7 @@ async fn weather_request(hourly: bool) -> anyhow::Result<Vec<ForecastTherm>> {
         .await?
         .text()
         .await?;
-
-    match serde_json::from_str::<ForecastResponse>(&body) {
+    match serde_json::from_str::<ApiResponse>(&body) {
         Ok(data) => Ok(data.properties.periods),
         Err(_) => Ok(Vec::new()),
     }
