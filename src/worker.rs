@@ -160,7 +160,7 @@ fn serialize_now() {
 /// closest.
 pub fn most_applicable(conditions: Vec<HourlyCondition>) -> Option<HourlyCondition> {
     let mut index = 0;
-    let mut min_difference = 999999999;
+    let mut min_difference = i64::MAX;
     let now = Utc::now();
     for (i, condition) in conditions.iter().enumerate() {
         let difference = now.timestamp() - condition.date.timestamp();

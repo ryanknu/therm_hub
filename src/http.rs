@@ -35,7 +35,6 @@ pub async fn start() {
     let server = Server::bind(&addr);
     let server = server.serve(make_service_fn(|_connection| async {
         Ok::<_, Infallible>(service_fn(|req: Request<Body>| async move {
-            println!("[ hyper] Incoming: {}", req.uri().path());
             let path = if req.method().eq(&Method::OPTIONS) {
                 &"/options"
             } else if !is_authorized(&req) {
