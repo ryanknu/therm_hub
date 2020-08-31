@@ -40,8 +40,7 @@ pub async fn install() -> anyhow::Result<InstallResponse> {
         "https://api.ecobee.com/authorize?response_type=ecobeePin&client_id={}&scope=smartRead",
         client_id
     );
-    let client = reqwest::Client::new();
-    let body = client
+    let body = crate::REQWEST
         .get(&url)
         .header("User-Agent", "github.com/ryanknu/therm_hub")
         .send()

@@ -145,8 +145,7 @@ pub async fn get_from_remote(code: &str, grant_type: GrantType) -> anyhow::Resul
         grant_type, code, client_id
     );
 
-    let client = reqwest::Client::new();
-    let body = client
+    let body = crate::REQWEST
         .post(&url)
         .header("User-Agent", "github.com/ryanknu/therm_hub")
         .send()

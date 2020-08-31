@@ -127,8 +127,7 @@ async fn http_request(bearer_token: &str) -> Result<String, reqwest::Error> {
         bearer_token
     );
 
-    let client = reqwest::Client::new();
-    let body = client.get("https://api.ecobee.com/1/thermostat?json=%7B%22selection%22%3A%7B%22selectionType%22%3A%22registered%22%2C%22selectionMatch%22%3A%22%22%2C%22includeRuntime%22%3A%22true%22%2C%22includeSensors%22%3A%22true%22%7D%7D")
+    let body = crate::REQWEST.get("https://api.ecobee.com/1/thermostat?json=%7B%22selection%22%3A%7B%22selectionType%22%3A%22registered%22%2C%22selectionMatch%22%3A%22%22%2C%22includeRuntime%22%3A%22true%22%2C%22includeSensors%22%3A%22true%22%7D%7D")
         .header("User-Agent", "github.com/ryanknu/therm_hub")
         .header("Content-Type", "application/json")
         .header("Authorization", format!("Bearer {}", bearer_token))

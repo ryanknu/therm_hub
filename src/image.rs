@@ -35,12 +35,7 @@ async fn download_and_store(url: &str, file_name: &str) -> anyhow::Result<()> {
         return Ok(());
     }
 
-    let bytes = reqwest::Client::new()
-        .get(url)
-        .send()
-        .await?
-        .bytes()
-        .await?;
+    let bytes = crate::REQWEST.get(url).send().await?.bytes().await?;
 
     let buffer = image::load_from_memory(&*bytes)?;
 
@@ -66,7 +61,7 @@ pub async fn scrape_webstream() -> anyhow::Result<()> {
 #[cfg(not(any(test, feature = "offline")))]
 pub async fn scrape_webstream() -> anyhow::Result<()> {
     let album_id = std::env::var("SHARED_ALBUM_ID")?;
-    let data = reqwest::Client::new()
+    let data = crate::REQWEST
         .post(&format!(
             "https://p26-sharedstreams.icloud.com/{}/sharedstreams/webstream",
             album_id
@@ -88,7 +83,7 @@ pub async fn scrape_webstream() -> anyhow::Result<()> {
 
     let body = format!("{{\"photoGuids\": {}}}", serde_json::to_string(&guids)?);
 
-    let data = reqwest::Client::new()
+    let data = crate::REQWEST
         .post(&format!(
             "https://p26-sharedstreams.icloud.com/{}/sharedstreams/webasseturls",
             album_id

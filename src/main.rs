@@ -44,6 +44,7 @@ type StsNowResponse = Arc<RwLock<NowResponse>>;
 lazy_static! {
     pub static ref NOW_STR: StsString = Arc::new(RwLock::new(String::new()));
     static ref NOW_RES: StsNowResponse = Arc::new(RwLock::new(NowResponse::default()));
+    pub static ref REQWEST: reqwest::Client = reqwest::Client::new();
 }
 
 #[derive(Serialize)]

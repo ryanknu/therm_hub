@@ -236,8 +236,7 @@ async fn weather_request(hourly: bool) -> anyhow::Result<Vec<ApiCondition>> {
         "WEATHER_URL_DAILY"
     })
     .unwrap();
-    let client = reqwest::Client::new();
-    let body = client
+    let body = crate::REQWEST
         .get(&weather_url)
         .header("User-Agent", "github.com/ryanknu/therm_hub")
         .send()
