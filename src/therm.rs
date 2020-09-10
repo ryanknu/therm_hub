@@ -2,6 +2,7 @@ use super::schema::thermostats;
 use chrono::{DateTime, NaiveDateTime, Utc};
 use diesel::prelude::*;
 use diesel::PgConnection;
+use serde::Serialize;
 
 #[derive(Debug, Serialize, Clone, Queryable)]
 pub struct Thermostat {
@@ -30,8 +31,8 @@ impl Thermostat {
     //     DateTime::<Utc>::from_utc(self.time, Utc)
     // }
 
-    pub fn new(name: String, time: DateTime<Utc>, temp: i32) -> Thermostat {
-        Thermostat {
+    pub fn new(name: String, time: DateTime<Utc>, temp: i32) -> Self {
+        Self {
             id: 0,
             name,
             time: time.naive_utc(),
@@ -47,8 +48,8 @@ impl Thermostat {
         is_hygrostat: bool,
         temperature: i32,
         relative_humidity: i32,
-    ) -> Thermostat {
-        Thermostat {
+    ) -> Self {
+        Self {
             id: 0,
             name,
             time: time.naive_utc(),
@@ -58,7 +59,7 @@ impl Thermostat {
         }
     }
 
-    pub fn insert(&self, connection: &PgConnection) -> Thermostat {
+    pub fn insert(&self, connection: &PgConnection) -> Self {
         let new_thermostat = NewThermostat {
             name: self.name.clone(),
             time: self.time,
@@ -81,7 +82,7 @@ impl Thermostat {
         connection: &PgConnection,
         start_date: &DateTime<Utc>,
         end_date: &DateTime<Utc>,
-    ) -> Result<Vec<Thermostat>, diesel::result::Error> {
+    ) -> Result<Vec<Self>, diesel::result::Error> {
         use thermostats::dsl;
         let start_date = start_date.naive_utc();
         let end_date = end_date.naive_utc();

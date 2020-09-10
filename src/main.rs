@@ -2,10 +2,6 @@
 extern crate diesel;
 #[macro_use]
 extern crate diesel_migrations;
-#[macro_use]
-extern crate lazy_static;
-#[macro_use]
-extern crate serde;
 
 use diesel::prelude::*;
 use diesel_migrations::*;
@@ -13,6 +9,8 @@ use dotenv::dotenv;
 use std::env;
 use std::sync::{Arc, RwLock};
 use std::thread;
+use lazy_static::lazy_static;
+use serde::Serialize;
 
 mod ecobee;
 mod http;
@@ -41,7 +39,9 @@ static VERSION: u32 = 20200822;
 /// the new function.
 type StsString = Arc<RwLock<String>>;
 type StsNowResponse = Arc<RwLock<NowResponse>>;
+type StsBool = Arc<RwLock<bool>>;
 lazy_static! {
+    static ref FETCHING_PHOTOS: StsBool = Arc::new(RwLock::new(false));
     pub static ref NOW_STR: StsString = Arc::new(RwLock::new(String::new()));
     static ref NOW_RES: StsNowResponse = Arc::new(RwLock::new(NowResponse::default()));
     pub static ref REQWEST: reqwest::Client = reqwest::Client::new();
@@ -135,10 +135,21 @@ fn run_migrations() -> bool {
 fn start_fetching_backgrounds() -> bool {
     thread::spawn(|| {
         println!("Starting update of backgrounds...");
-        match image::scrape_webstream() {
-            Ok(_) => println!("Completed update of backgrounds"),
-            Err(err) => println!("Error updating backgrounds: {:?}", err),
-        };
+        let fetching_photos = Arc::clone(&FETCHING_PHOTOS);
+        let fetching_photos = fetching_photos.write();
+        if let Ok(mut fetching_photos) = fetching_photos {
+            if *fetching_photos {
+                println!("Already fetching photos; stopped");
+            } else {
+                *fetching_photos = true;
+                match image::scrape_webstream() {
+                    Ok(_) => println!("Completed update of backgrounds"),
+                    Err(err) => println!("Error updating backgrounds: {:?}", err),
+                };
+                // TODO: this could be made faster (but more complex) by dropping the lock before scrape_webstream() and then re-establishing the lock here
+                *fetching_photos = false;
+            }
+        }
     });
     true
 }

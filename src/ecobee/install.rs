@@ -1,4 +1,5 @@
 use serde::ser::{Serialize, SerializeStruct, Serializer};
+use serde::Deserialize;
 
 // this file covers the ecobee api install process
 

@@ -1,5 +1,6 @@
 use chrono::{Date, DateTime, TimeZone, Timelike, Utc};
 use std::collections::HashMap;
+use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Debug)]
 struct ApiResponse {

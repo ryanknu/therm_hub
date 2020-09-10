@@ -3,6 +3,8 @@ use serde_json::Value;
 #[cfg(not(any(test, feature = "offline")))]
 use std::path::Path;
 use std::path::PathBuf;
+#[cfg(not(any(test, feature = "offline")))]
+use serde::Deserialize;
 
 // TODO: Make this file a lot more safe
 

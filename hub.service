@@ -1,20 +1,26 @@
+[Unit]
 Description=ThermHub
-
 Wants=network.target
-After=syslog.target network.target
+After=syslog.target network-online.target
 
 [Service]
-Environment=LISTEN_PORT=
+Environment=LISTEN_PORT=3000
 Environment=DATABASE_URL=
+Environment=OFFLINE=no
 Environment=CORS_HOST=
 Environment=ECOBEE_CLIENT_ID=
-Environment=WEATHER_URL_DAILY=
-Environment=WEATHER_URL_HOURLY=
+Environment=WEATHER_URL_HOURLY=https://api.weather.gov/gridpoints/MKX/43,56/forecast/hourly
+Environment=WEATHER_URL_DAILY=https://api.weather.gov/gridpoints/MKX/43,56/forecast
+Environment=SHARED_SECRET=
+Environment=SHARED_ALBUM_ID=B0QJtdOXmJKsyrB
+Environment=PHOTO_CACHE_DIR=/usr/share/hub/photo-cache
 Type=Simple
 ExecStart=/home/admin/therm_hub
 Restart=on-failure
 RestartSec=5
 KillMode=process
+User=hub
+Group=hub
 
 [Install]
 WantedBy=multi-user.target

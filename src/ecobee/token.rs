@@ -6,6 +6,7 @@ use diesel::prelude::*;
 use diesel::PgConnection;
 #[cfg(not(any(test, feature = "offline")))]
 use std::env;
+use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Serialize, Debug)]
 pub struct TokenResponse {

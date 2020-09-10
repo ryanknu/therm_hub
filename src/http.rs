@@ -2,7 +2,6 @@ use crate::ecobee::{get_token, install, save_token, GRANT_PIN};
 use crate::image::photo_paths;
 use crate::Thermostat;
 use chrono::{DateTime, Utc};
-use dotenv::dotenv;
 use hyper::header::HeaderValue;
 use hyper::server::Server;
 use hyper::service::{make_service_fn, service_fn};
@@ -29,16 +28,15 @@ struct PastInput {
 /// Starts the hyper HTTP server. Also contains the routing code.
 #[tokio::main]
 pub async fn start() {
-    dotenv().ok();
     let port: u16 = env::var("LISTEN_PORT").unwrap().parse().unwrap();
     let addr = SocketAddr::from(([127, 0, 0, 1], port));
     let server = Server::bind(&addr);
     let server = server.serve(make_service_fn(|_connection| async {
         Ok::<_, Infallible>(service_fn(|req: Request<Body>| async move {
             let path = if req.method().eq(&Method::OPTIONS) {
-                &"/options"
+                "/options"
             } else if !is_authorized(&req) {
-                &"/forbidden"
+                "/forbidden"
             } else {
                 req.uri().path()
             };
@@ -83,8 +81,11 @@ pub async fn start() {
 /// Returns a `NowRepsonse` in a response body.
 fn now() -> Response<Body> {
     let now = Arc::clone(&crate::NOW_STR);
-    let now = now.read().unwrap();
-    Response::new(Body::from((*now).clone()))
+    let now = now.read();
+    match now {
+        Ok(now) => Response::new(Body::from(now.clone())),
+        Err(_) => internal_server_error(),
+    }
 }
 
 /// # Past Handler
@@ -111,7 +112,7 @@ fn past(req: Request<Body>) -> Response<Body> {
                     Ok(body) => Response::new(Body::from(body)),
                 },
             }
-        }
+        },
     }
 }
 
@@ -121,18 +122,22 @@ fn past(req: Request<Body>) -> Response<Body> {
 /// device's time to the server's time, and store an offset value that is
 /// factored into all time calculations from that point forward.
 fn time() -> Response<Body> {
-    Response::builder()
+    match Response::builder()
         .header("Content-Type", "text/plain")
-        .body(Body::from(Utc::now().timestamp().to_string()))
-        .unwrap()
+        .body(Body::from(Utc::now().timestamp().to_string())) {
+        Ok(response) => response,
+        Err(_) => internal_server_error(),
+    }
 }
 
 fn release_notes() -> Response<Body> {
-    Response::builder()
+    match Response::builder()
         .header("Content-Type", "text/markdown")
         .header("X-Therm-Hub-Version", format!("{}", crate::VERSION))
-        .body(Body::from(include_str!("../release-notes.md")))
-        .unwrap()
+        .body(Body::from(include_str!("../release-notes.md"))) {
+        Ok(response) => response,
+        Err(_) => internal_server_error(),
+    }
 }
 
 async fn install_1(req: Request<Body>) -> Response<Body> {
@@ -176,7 +181,7 @@ async fn install_2(req: Request<Body>) -> Response<Body> {
 }
 
 /// # Background Photos
-/// Returns the background photos for the app in a multi-part repsonse
+/// Returns the background photos for the app in a multi-part response
 fn background_photos() -> Response<Body> {
     let mut body: Vec<u8> = Vec::new();
     let paths = photo_paths();
@@ -201,14 +206,17 @@ fn background_photos() -> Response<Body> {
         }
         body.extend("\r\n".bytes());
     }
-    Response::builder()
+
+    match Response::builder()
         .status(StatusCode::OK)
         .header(
             "Content-Type",
             "multipart/form-data;boundary=e03d07419ce04d4e79a14c76fb6fa7e0",
         )
-        .body(Body::from(body))
-        .unwrap()
+        .body(Body::from(body)) {
+        Ok(response) => response,
+        Err(_) => internal_server_error(),
+    }
 }
 
 /// # Background Photos Refresh
@@ -223,16 +231,22 @@ fn background_photos_refresh() -> Response<Body> {
 /// Checks to see if an authorization header contains a bearer token that is
 /// the env var SHARED_SECRET.
 fn is_authorized<V>(req: &Request<V>) -> bool {
-    let shared_secret = std::env::var("SHARED_SECRET").unwrap().to_lowercase();
-    match req.headers().get("authorization") {
-        Some(header_value) => match header_value.to_str() {
-            Ok(header_str) => header_str
-                .to_lowercase()
-                .replace("bearer ", "")
-                .eq(&shared_secret),
-            Err(_) => false,
+    let shared_secret = std::env::var("SHARED_SECRET");
+    match shared_secret {
+        Err(_) => false,
+        Ok(shared_secret) => {
+            let shared_secret = shared_secret.to_lowercase();
+            match req.headers().get("authorization") {
+                Some(header_value) => match header_value.to_str() {
+                    Ok(header_str) => header_str
+                        .to_lowercase()
+                        .replace("bearer ", "")
+                        .eq(&shared_secret),
+                    Err(_) => false,
+                },
+                None => false,
+            }
         },
-        None => false,
     }
 }
 
@@ -259,37 +273,45 @@ where
 /// # Method not allowed
 /// Returns a response payload that indicates 405 method not allowed.
 fn method_not_allowed() -> Response<Body> {
-    Response::builder()
+    match Response::builder()
         .status(StatusCode::METHOD_NOT_ALLOWED)
-        .body(Body::from("405 Method Not Allowed"))
-        .unwrap()
+        .body(Body::from("405 Method Not Allowed")) {
+        Ok(response) => response,
+        Err(_) => internal_server_error(),
+    }
 }
 
 /// # Bad Request
 /// Returns a response payload that indicates a 400 bad request.
 fn bad_request() -> Response<Body> {
-    Response::builder()
+    match Response::builder()
         .status(StatusCode::BAD_REQUEST)
-        .body(Body::from("400 Bad Request"))
-        .unwrap()
+        .body(Body::from("400 Bad Request")) {
+        Ok(response) => response,
+        Err(_) => internal_server_error(),
+    }
 }
 
 /// # Forbidden
 /// Returns a response payload that indicates a 403 forbidden.
 fn forbidden() -> Response<Body> {
-    Response::builder()
+    match Response::builder()
         .status(StatusCode::FORBIDDEN)
-        .body(Body::from("403 Forbidden"))
-        .unwrap()
+        .body(Body::from("403 Forbidden")) {
+        Ok(response) => response,
+        Err(_) => internal_server_error(),
+    }
 }
 
 /// # Not Found
 /// Returns a response payload that indicates a 404 not found.
 fn not_found() -> Response<Body> {
-    Response::builder()
+    match Response::builder()
         .status(StatusCode::NOT_FOUND)
-        .body(Body::from("404 Not found"))
-        .unwrap()
+        .body(Body::from("404 Not found")) {
+        Ok(response) => response,
+        Err(_) => internal_server_error(),
+    }
 }
 
 /// # Internal Server Serror

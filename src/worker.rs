@@ -56,6 +56,8 @@ fn work() {
 
     // TODO: error handling, clean up var names
 
+    // TODO: use join
+
     let hourly_forecast = hourly_forecast();
     if let Some(forcast) = hourly_forecast.clone() {
         if let Some(condition) = most_applicable(forcast.conditions) {

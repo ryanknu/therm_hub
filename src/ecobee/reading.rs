@@ -5,6 +5,7 @@ use chrono::TimeZone;
 use chrono::{DateTime, NaiveDateTime, Utc};
 #[cfg(not(any(test, feature = "offline")))]
 use std::collections::HashMap;
+use serde::Deserialize;
 
 #[derive(Clone, Debug)]
 pub struct Reading {
