@@ -3,9 +3,9 @@ use crate::parse;
 #[cfg(any(test, feature = "offline"))]
 use chrono::TimeZone;
 use chrono::{DateTime, NaiveDateTime, Utc};
+use serde::Deserialize;
 #[cfg(not(any(test, feature = "offline")))]
 use std::collections::HashMap;
-use serde::Deserialize;
 
 #[derive(Clone, Debug)]
 pub struct Reading {

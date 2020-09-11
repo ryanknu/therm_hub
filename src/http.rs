@@ -112,7 +112,7 @@ fn past(req: Request<Body>) -> Response<Body> {
                     Ok(body) => Response::new(Body::from(body)),
                 },
             }
-        },
+        }
     }
 }
 
@@ -124,7 +124,8 @@ fn past(req: Request<Body>) -> Response<Body> {
 fn time() -> Response<Body> {
     match Response::builder()
         .header("Content-Type", "text/plain")
-        .body(Body::from(Utc::now().timestamp().to_string())) {
+        .body(Body::from(Utc::now().timestamp().to_string()))
+    {
         Ok(response) => response,
         Err(_) => internal_server_error(),
     }
@@ -134,7 +135,8 @@ fn release_notes() -> Response<Body> {
     match Response::builder()
         .header("Content-Type", "text/markdown")
         .header("X-Therm-Hub-Version", format!("{}", crate::VERSION))
-        .body(Body::from(include_str!("../release-notes.md"))) {
+        .body(Body::from(include_str!("../release-notes.md")))
+    {
         Ok(response) => response,
         Err(_) => internal_server_error(),
     }
@@ -213,7 +215,8 @@ fn background_photos() -> Response<Body> {
             "Content-Type",
             "multipart/form-data;boundary=e03d07419ce04d4e79a14c76fb6fa7e0",
         )
-        .body(Body::from(body)) {
+        .body(Body::from(body))
+    {
         Ok(response) => response,
         Err(_) => internal_server_error(),
     }
@@ -246,7 +249,7 @@ fn is_authorized<V>(req: &Request<V>) -> bool {
                 },
                 None => false,
             }
-        },
+        }
     }
 }
 
@@ -275,7 +278,8 @@ where
 fn method_not_allowed() -> Response<Body> {
     match Response::builder()
         .status(StatusCode::METHOD_NOT_ALLOWED)
-        .body(Body::from("405 Method Not Allowed")) {
+        .body(Body::from("405 Method Not Allowed"))
+    {
         Ok(response) => response,
         Err(_) => internal_server_error(),
     }
@@ -286,7 +290,8 @@ fn method_not_allowed() -> Response<Body> {
 fn bad_request() -> Response<Body> {
     match Response::builder()
         .status(StatusCode::BAD_REQUEST)
-        .body(Body::from("400 Bad Request")) {
+        .body(Body::from("400 Bad Request"))
+    {
         Ok(response) => response,
         Err(_) => internal_server_error(),
     }
@@ -297,7 +302,8 @@ fn bad_request() -> Response<Body> {
 fn forbidden() -> Response<Body> {
     match Response::builder()
         .status(StatusCode::FORBIDDEN)
-        .body(Body::from("403 Forbidden")) {
+        .body(Body::from("403 Forbidden"))
+    {
         Ok(response) => response,
         Err(_) => internal_server_error(),
     }
@@ -308,7 +314,8 @@ fn forbidden() -> Response<Body> {
 fn not_found() -> Response<Body> {
     match Response::builder()
         .status(StatusCode::NOT_FOUND)
-        .body(Body::from("404 Not found")) {
+        .body(Body::from("404 Not found"))
+    {
         Ok(response) => response,
         Err(_) => internal_server_error(),
     }

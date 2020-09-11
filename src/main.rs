@@ -6,11 +6,11 @@ extern crate diesel_migrations;
 use diesel::prelude::*;
 use diesel_migrations::*;
 use dotenv::dotenv;
+use lazy_static::lazy_static;
+use serde::Serialize;
 use std::env;
 use std::sync::{Arc, RwLock};
 use std::thread;
-use lazy_static::lazy_static;
-use serde::Serialize;
 
 mod ecobee;
 mod http;

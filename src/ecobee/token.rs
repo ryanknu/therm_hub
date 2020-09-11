@@ -4,9 +4,9 @@ use crate::schema::ecobee_token;
 use chrono::{NaiveDateTime, Utc};
 use diesel::prelude::*;
 use diesel::PgConnection;
+use serde::{Deserialize, Serialize};
 #[cfg(not(any(test, feature = "offline")))]
 use std::env;
-use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Serialize, Debug)]
 pub struct TokenResponse {
