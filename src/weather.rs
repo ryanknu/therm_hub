@@ -154,7 +154,7 @@ pub fn daily_forecast() -> Option<Forecast<DailyCondition>> {
     match weather_request_retry_wrapper(false) {
         Ok(response) => Some(response.into()),
         Err(err) => {
-            eprintln!("Failed getting weather! {:?}", err);
+            crate::log_error(&format!("Failed getting weather! {:?}", err));
             None
         }
     }
@@ -200,7 +200,7 @@ pub fn hourly_forecast() -> Option<Forecast<HourlyCondition>> {
     match weather_request_retry_wrapper(true) {
         Ok(response) => Some(response.into()),
         Err(err) => {
-            eprintln!("Failed getting weather! {:?}", err);
+            crate::log_error(&format!("Failed getting weather! {:?}", err));
             None
         }
     }
@@ -215,6 +215,7 @@ fn weather_request_retry_wrapper(hourly: bool) -> anyhow::Result<Vec<ApiConditio
         if let Ok(result) = weather_request(hourly) {
             return Ok(result);
         }
+        crate::log_error(&format!("Failed to get weather"));
         std::thread::sleep(std::time::Duration::from_secs(2));
     }
     weather_request(hourly)
@@ -226,10 +227,10 @@ fn weather_request_retry_wrapper(hourly: bool) -> anyhow::Result<Vec<ApiConditio
 #[cfg(not(any(test, feature = "offline")))]
 #[tokio::main]
 async fn weather_request(hourly: bool) -> anyhow::Result<Vec<ApiCondition>> {
-    println!(
+    crate::log_error(&format!(
         "[worker] Getting {} weather",
         if hourly { "hourly" } else { "daily" }
-    );
+    ));
 
     let weather_url = std::env::var(if hourly {
         "WEATHER_URL_HOURLY"

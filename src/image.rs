@@ -33,7 +33,7 @@ async fn download_and_store(url: &str, file_name: &str) -> anyhow::Result<()> {
     let path = Path::new(&path);
 
     if path.is_file() {
-        println!("Skipping {} because it is already on disk", file_name);
+        crate::log_message(&format!("Skipping {} because it is already on disk", file_name));
         return Ok(());
     }
 
@@ -45,9 +45,9 @@ async fn download_and_store(url: &str, file_name: &str) -> anyhow::Result<()> {
     if buffer.to_rgb().width() > 800 {
         let buffer = buffer.resize_to_fill(800, 480, image::imageops::FilterType::Lanczos3);
         buffer.save(path)?;
-        println!("Downloaded image to {}", file_name);
+        crate::log_message(&format!("Downloaded image to {}", file_name));
     } else {
-        println!("Skipping {} because it is a thumbnail", file_name);
+        crate::log_message(&format!("Skipping {} because it is a thumbnail", file_name));
     }
 
     Ok(())

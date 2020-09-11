@@ -10,7 +10,7 @@ pub struct InstallResponse {
     code: String,
 }
 
-// RK: The `rename_all=camelCase` above will make InstallRepsonse have `ecobeePin` in the JSON
+// RK: The `rename_all=camelCase` above will make InstallResponse have `ecobeePin` in the JSON
 //     but I want `ecobee_pin` in the JSON, and serializers are a lot easier to write than
 //     deserializers, so I'm doing it this way.
 impl Serialize for InstallResponse {

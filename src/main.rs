@@ -86,7 +86,7 @@ impl Default for NowResponse {
 /// 5. Chrono - for date and time operations.
 fn main() {
     if cfg!(feature = "offline") {
-        println!("Starting in offline mode...");
+        log_message("Starting in offline mode...");
     }
     if check_env() && run_migrations() && start_fetching_backgrounds() && worker::check() {
         worker::start();
@@ -99,7 +99,7 @@ fn main() {
 /// the server so that way we don't have some threads panic and some not.
 /// Panics the main thread if any environment vars are missing.
 fn check_env() -> bool {
-    println!("Checking env...");
+    log_message("Checking env...");
     dotenv().ok();
     env::var("LISTEN_PORT").expect("LISTEN_PORT must be set");
     env::var("DATABASE_URL").expect("DATABASE_URL must be set");
@@ -117,13 +117,13 @@ fn check_env() -> bool {
 /// Updates the database with the latest table defintions. Returns `true`
 /// if it worked and `false` if it failed.
 fn run_migrations() -> bool {
-    println!("Running migrations...");
+    log_message("Running migrations...");
     embed_migrations!();
     let connection = establish_connection();
     match embedded_migrations::run(&connection) {
         Ok(_) => true,
         Err(message) => {
-            println!("Migrations failed! {:?}", message);
+            log_error(&format!("Migrations failed! {:?}", message));
             false
         }
     }
@@ -134,17 +134,17 @@ fn run_migrations() -> bool {
 /// background.
 fn start_fetching_backgrounds() -> bool {
     thread::spawn(|| {
-        println!("Starting update of backgrounds...");
+        log_message("Starting update of backgrounds...");
         let fetching_photos = Arc::clone(&FETCHING_PHOTOS);
         let fetching_photos = fetching_photos.write();
         if let Ok(mut fetching_photos) = fetching_photos {
             if *fetching_photos {
-                println!("Already fetching photos; stopped");
+                log_message("Already fetching photos; stopped");
             } else {
                 *fetching_photos = true;
                 match image::scrape_webstream() {
-                    Ok(_) => println!("Completed update of backgrounds"),
-                    Err(err) => println!("Error updating backgrounds: {:?}", err),
+                    Ok(_) => log_message("Completed update of backgrounds"),
+                    Err(err) => log_message(&format!("Error updating backgrounds: {:?}", err)),
                 };
                 // TODO: this could be made faster (but more complex) by dropping the lock before scrape_webstream() and then re-establishing the lock here
                 *fetching_photos = false;
@@ -164,7 +164,7 @@ fn establish_connection() -> PgConnection {
         if let Ok(connection) = connection_result {
             return connection;
         } else if let Err(err) = connection_result {
-            eprintln!("{:?}", err);
+            log_error(&format!("{:?}", err));
         }
         std::thread::sleep(std::time::Duration::from_secs(2));
     }
@@ -181,9 +181,22 @@ where
     match result {
         Ok(data) => Ok(data),
         Err(err) => {
-            eprintln!("[ json ] JSON: {}", data);
-            eprintln!("[ json ] JSON error: {}", err);
+            log_error(data);
+            log_error(&format!("{}", err));
             Err(err.into())
         }
     }
+}
+
+/// # Log Message
+/// Logs a message to the journal.
+pub fn log_message(message: &str) {
+    println!("msg [{}] {}", chrono::Utc::now(), message);
+}
+
+/// # Log Error
+/// Just a convenience method to make all error logs go through one method. This makes all log
+/// entries have the date prepended to them.
+pub fn log_error(message: &str) {
+    eprintln!("err [{}] {}", chrono::Utc::now(), message);
 }

@@ -67,10 +67,10 @@ pub async fn start() {
         }))
     }));
 
-    println!("[ main ] hyper thread started");
+    crate::log_message("hyper server started");
 
     if let Err(e) = server.await {
-        eprintln!("server error: {}", e);
+        crate::log_error(&format!("hyper server error: {:?}", e));
     }
 }
 
@@ -164,7 +164,6 @@ async fn install_2(req: Request<Body>) -> Response<Body> {
         None => bad_request(),
         Some(code) => {
             let response = get_token(&code.code, GRANT_PIN).await;
-            println!("response: {:?}", response);
             match response {
                 Err(_) => internal_server_error(),
                 Ok(token_response) => {
@@ -267,7 +266,7 @@ where
     match parsed {
         Ok(parsed) => Some(parsed),
         Err(err) => {
-            eprintln!("[ hyper] could not decode query params {:?}", err);
+            crate::log_message(&format!("Could not decode query params {:?}", err));
             None
         }
     }

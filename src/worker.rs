@@ -11,7 +11,7 @@ use std::{sync::Arc, thread, time::Duration};
 /// from Internet services every 5 minutes. It will put historical entries
 /// in the database, and update static data.
 pub fn start() {
-    println!("Starting worker thread");
+    crate::log_message("Starting worker thread");
     thread::spawn(|| {
         let mut last_timestamp = Utc::now();
         loop {
@@ -28,7 +28,7 @@ pub fn start() {
 /// thread to make sure that readings can be obtained.
 /// TODO: Create a pathway to return false, then it would just be `work()`
 pub fn check() -> bool {
-    println!("Starting check of worker");
+    crate::log_message("Starting check of worker");
     work();
     true
 }

@@ -25,8 +25,8 @@ struct NewThermostat {
 }
 
 impl Thermostat {
-    // RK: Commented out because it is never used, but I'm keeping it in case
-    //     I need to use `.time` (which is private since it is Naive) in the future.
+    // RK: Commented out because it is never used, but I'm keeping it in case I need to use `.time`
+    //     (which is private since it is naive) in the future.
     // pub fn time(&self) -> DateTime<Utc> {
     //     DateTime::<Utc>::from_utc(self.time, Utc)
     // }
@@ -70,10 +70,7 @@ impl Thermostat {
         let insert = diesel::insert_into(thermostats::table).values(&new_thermostat);
 
         if cfg!(feature = "queries") {
-            println!(
-                "{}",
-                diesel::debug_query::<diesel::pg::Pg, _>(&insert).to_string()
-            );
+            crate::log_message(&diesel::debug_query::<diesel::pg::Pg, _>(&insert).to_string());
         }
         insert.get_result(connection).expect("Whoopsie-doodles")
     }
@@ -91,10 +88,7 @@ impl Thermostat {
             .filter(dsl::time.le(end_date));
 
         if cfg!(feature = "queries") {
-            println!(
-                "{}",
-                diesel::debug_query::<diesel::pg::Pg, _>(&query).to_string()
-            );
+            crate::log_message(&diesel::debug_query::<diesel::pg::Pg, _>(&query).to_string());
         }
         query.load::<Thermostat>(connection)
     }

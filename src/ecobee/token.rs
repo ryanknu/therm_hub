@@ -63,10 +63,7 @@ pub fn get_token(db: &PgConnection) -> Option<Token> {
         .limit(1);
 
     if cfg!(feature = "queries") {
-        println!(
-            "{}",
-            diesel::debug_query::<diesel::pg::Pg, _>(&select).to_string()
-        );
+        crate::log_message(&diesel::debug_query::<diesel::pg::Pg, _>(&select).to_string());
     }
 
     match select.load::<Token>(db) {
@@ -90,10 +87,7 @@ pub fn save_token(token: &Token, db: &PgConnection) -> Option<Token> {
             });
 
             if cfg!(feature = "queries") {
-                println!(
-                    "{}",
-                    diesel::debug_query::<diesel::pg::Pg, _>(&insert).to_string()
-                );
+                crate::log_message(&diesel::debug_query::<diesel::pg::Pg, _>(&insert).to_string());
             }
 
             insert.get_result(db).ok()
@@ -106,10 +100,7 @@ pub fn save_token(token: &Token, db: &PgConnection) -> Option<Token> {
             ));
 
             if cfg!(feature = "queries") {
-                println!(
-                    "{}",
-                    diesel::debug_query::<diesel::pg::Pg, _>(&update).to_string()
-                );
+                crate::log_message(&diesel::debug_query::<diesel::pg::Pg, _>(&update).to_string());
             }
             update.get_result::<Token>(db).ok()
         }
