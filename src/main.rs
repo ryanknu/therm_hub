@@ -10,19 +10,16 @@ use lazy_static::lazy_static;
 use serde::Serialize;
 use std::env;
 use std::sync::{Arc, RwLock};
-use std::thread;
+use therm::Thermostat;
+use worker::{DailyCondition, HourlyCondition};
 
 mod ecobee;
-mod http;
-mod image;
+mod web;
 mod schema;
 mod therm;
-mod weather;
 mod worker;
-use therm::Thermostat;
-use weather::{DailyCondition, HourlyCondition};
 
-static VERSION: u32 = 20200822;
+static VERSION: u32 = 20200911;
 
 /// Set up in-memory data cache for web server. We want to keep track of:
 /// 1. The entire string repsonse for "/now" requests, since it only changes
@@ -39,9 +36,7 @@ static VERSION: u32 = 20200822;
 /// the new function.
 type StsString = Arc<RwLock<String>>;
 type StsNowResponse = Arc<RwLock<NowResponse>>;
-type StsBool = Arc<RwLock<bool>>;
 lazy_static! {
-    static ref FETCHING_PHOTOS: StsBool = Arc::new(RwLock::new(false));
     pub static ref NOW_STR: StsString = Arc::new(RwLock::new(String::new()));
     static ref NOW_RES: StsNowResponse = Arc::new(RwLock::new(NowResponse::default()));
     pub static ref REQWEST: reqwest::Client = reqwest::Client::new();
@@ -88,9 +83,9 @@ fn main() {
     if cfg!(feature = "offline") {
         log_message("Starting in offline mode...");
     }
-    if check_env() && run_migrations() && start_fetching_backgrounds() && worker::check() {
+    if check_env() && run_migrations() && worker::check() {
         worker::start();
-        http::start();
+        web::start();
     }
 }
 
@@ -127,31 +122,6 @@ fn run_migrations() -> bool {
             false
         }
     }
-}
-
-/// # Start Fetching Backgrounds
-/// Creates a thread that will populate the backgrounds directory in the
-/// background.
-fn start_fetching_backgrounds() -> bool {
-    thread::spawn(|| {
-        log_message("Starting update of backgrounds...");
-        let fetching_photos = Arc::clone(&FETCHING_PHOTOS);
-        let fetching_photos = fetching_photos.write();
-        if let Ok(mut fetching_photos) = fetching_photos {
-            if *fetching_photos {
-                log_message("Already fetching photos; stopped");
-            } else {
-                *fetching_photos = true;
-                match image::scrape_webstream() {
-                    Ok(_) => log_message("Completed update of backgrounds"),
-                    Err(err) => log_message(&format!("Error updating backgrounds: {:?}", err)),
-                };
-                // TODO: this could be made faster (but more complex) by dropping the lock before scrape_webstream() and then re-establishing the lock here
-                *fetching_photos = false;
-            }
-        }
-    });
-    true
 }
 
 /// # Establish Connection

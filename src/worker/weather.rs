@@ -15,7 +15,7 @@ struct ApiWrapper {
 
 #[derive(Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
-pub struct ApiCondition {
+struct ApiCondition {
     pub start_time: DateTime<Utc>,
     pub temperature: i32,
     pub temperature_unit: String,

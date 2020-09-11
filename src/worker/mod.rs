@@ -1,10 +1,13 @@
 use crate::{
     ecobee, establish_connection,
-    weather::{daily_forecast, hourly_forecast, DailyCondition, Forecast, HourlyCondition},
     NowResponse, Thermostat, NOW_RES, NOW_STR,
 };
+use weather::{daily_forecast, hourly_forecast, Forecast};
+pub use weather::{DailyCondition, HourlyCondition};
 use chrono::{DateTime, Duration as ChronoDuration, Utc};
 use std::{sync::Arc, thread, time::Duration};
+
+mod weather;
 
 /// # Start Worker Thread
 /// The worker thread is a background program that retrieves information
@@ -160,7 +163,7 @@ fn serialize_now() {
 /// way to consume this data (the system *should* return the HourlyCondition
 /// which the curren time is between) but this was a fun exercise to implement
 /// closest.
-pub fn most_applicable(conditions: Vec<HourlyCondition>) -> Option<HourlyCondition> {
+fn most_applicable(conditions: Vec<HourlyCondition>) -> Option<HourlyCondition> {
     let mut index = 0;
     let mut min_difference = i64::MAX;
     let now = Utc::now();

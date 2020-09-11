@@ -1,17 +1,19 @@
 use crate::ecobee::{get_token, install, save_token, GRANT_PIN};
-use crate::image::photo_paths;
 use crate::Thermostat;
 use chrono::{DateTime, Utc};
 use hyper::header::HeaderValue;
 use hyper::server::Server;
 use hyper::service::{make_service_fn, service_fn};
 use hyper::{Body, Method, Request, Response, StatusCode};
+use photo::{photo_paths, start_fetching_backgrounds};
 use serde::Deserialize;
 use std::convert::Infallible;
 use std::env;
 use std::io::Read;
 use std::net::SocketAddr;
 use std::sync::Arc;
+
+mod photo;
 
 #[derive(Deserialize)]
 struct InstallTwoInput {
@@ -135,7 +137,7 @@ fn release_notes() -> Response<Body> {
     match Response::builder()
         .header("Content-Type", "text/markdown")
         .header("X-Therm-Hub-Version", format!("{}", crate::VERSION))
-        .body(Body::from(include_str!("../release-notes.md")))
+        .body(Body::from(include_str!("../../release-notes.md")))
     {
         Ok(response) => response,
         Err(_) => internal_server_error(),
@@ -223,9 +225,8 @@ fn background_photos() -> Response<Body> {
 
 /// # Background Photos Refresh
 /// Starts the process of refreshing backgrounds, and immediately returns.
-/// Please do not call this multiple times in rapid succession :)
 fn background_photos_refresh() -> Response<Body> {
-    crate::start_fetching_backgrounds();
+    start_fetching_backgrounds();
     Response::new(Body::from("Refresh started"))
 }
 

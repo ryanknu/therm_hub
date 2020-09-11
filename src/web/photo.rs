@@ -1,3 +1,4 @@
+use lazy_static::lazy_static;
 #[cfg(not(any(test, feature = "offline")))]
 use serde::Deserialize;
 #[cfg(not(any(test, feature = "offline")))]
@@ -5,6 +6,8 @@ use serde_json::Value;
 #[cfg(not(any(test, feature = "offline")))]
 use std::path::Path;
 use std::path::PathBuf;
+use std::thread;
+use std::sync::{Arc, RwLock};
 
 // TODO: Make this file a lot more safe
 
@@ -25,6 +28,11 @@ struct Photo {
 #[derive(Deserialize)]
 struct WebAssetUrls {
     items: Value,
+}
+
+type StsBool = Arc<RwLock<bool>>;
+lazy_static! {
+    static ref FETCHING_PHOTOS: StsBool = Arc::new(RwLock::new(false));
 }
 
 #[cfg(not(any(test, feature = "offline")))]
@@ -55,13 +63,13 @@ async fn download_and_store(url: &str, file_name: &str) -> anyhow::Result<()> {
 
 #[tokio::main]
 #[cfg(any(test, feature = "offline"))]
-pub async fn scrape_webstream() -> anyhow::Result<()> {
+async fn scrape_webstream() -> anyhow::Result<()> {
     Ok(())
 }
 
 #[tokio::main]
 #[cfg(not(any(test, feature = "offline")))]
-pub async fn scrape_webstream() -> anyhow::Result<()> {
+async fn scrape_webstream() -> anyhow::Result<()> {
     let album_id = std::env::var("SHARED_ALBUM_ID")?;
     let data = crate::REQWEST
         .post(&format!(
@@ -129,4 +137,29 @@ pub fn photo_paths() -> Vec<PathBuf> {
             _ => None,
         })
         .collect()
+}
+
+/// # Start Fetching Backgrounds
+/// Creates a thread that will populate the backgrounds directory in the
+/// background.
+pub fn start_fetching_backgrounds() -> bool {
+    thread::spawn(|| {
+        crate::log_message("Starting update of backgrounds...");
+        let fetching_photos = Arc::clone(&FETCHING_PHOTOS);
+        let fetching_photos = fetching_photos.write();
+        if let Ok(mut fetching_photos) = fetching_photos {
+            if *fetching_photos {
+                crate::log_message("Already fetching photos; stopped");
+            } else {
+                *fetching_photos = true;
+                match scrape_webstream() {
+                    Ok(_) => crate::log_message("Completed update of backgrounds"),
+                    Err(err) => crate::log_message(&format!("Error updating backgrounds: {:?}", err)),
+                };
+                // TODO: this could be made faster (but more complex) by dropping the lock before scrape_webstream() and then re-establishing the lock here
+                *fetching_photos = false;
+            }
+        }
+    });
+    true
 }
